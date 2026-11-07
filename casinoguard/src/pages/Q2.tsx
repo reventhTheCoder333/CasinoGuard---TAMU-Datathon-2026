@@ -131,7 +131,7 @@ export default function Q2() {
         question="Monthly demand by zone, bank and theme from machine meters (all play), paired with door/zone traffic counters and the event calendar." />
 
       <Callout title="Analysis status: results validated against the team's Q2 outputs" tone="gold">
-        Zone-level figures are recomputed from <code>prepared_daily_view</code> and <code>zone_traffic_hourly</code>; January and June daily coin-in for all 7 zones match <code>q2_outputs/zone_demand_change.csv</code> (14 checks).
+        Zone-level figures are recomputed from <code>prepared_daily_view</code> and <code>zone_traffic_hourly</code>; January and June daily coin-in for all 7 zones match <code>analysis/q2_floor_demand/outputs/zone_demand_change.csv</code> (14 checks).
         Comparisons use the <b>first vs last month of the selected period</b> ({mLabel(first)} → {mLabel(last)}). Explanations below state what the data is <i>consistent with</i>; correlation is not proof of cause.
       </Callout>
 
@@ -191,7 +191,7 @@ export default function Q2() {
       </div>
 
       <Panel className="mt" title={`Zone comparison: ${mLabel(first)} vs ${mLabel(last)}`} sub="Click a zone to drill down. Δ = relative change."
-        source={{ tables: ['1_prepared_views/prepared_daily_view', '4_context/zone_traffic_hourly'], script: 'pipeline/build_data.py (Q2) · cross-checked with q2_outputs/q2_zone_traffic_jan_june_comparison.csv' }}>
+        source={{ tables: ['1_prepared_views/prepared_daily_view', '4_context/zone_traffic_hourly'], script: 'pipeline/build_data.py (Q2) · cross-checked with analysis/q2_floor_demand/outputs/q2_zone_traffic_jan_june_comparison.csv' }}>
         <DataTable rows={cmp} columns={cmpCols} rowKey={(r) => String(r.zone_id)} onRowClick={(r) => setZone(String(r.zone_id))} selectedKey={zone}
           initialSort={{ key: 'daily_coin_chg', dir: 'asc' }} csvName={`q2_zone_comparison_${p.key}`} pageSize={10} />
       </Panel>
@@ -232,7 +232,7 @@ export default function Q2() {
             <tbody>{bankRows.map((b) => <tr key={b.bank_id}><td className="strong">{b.bank_id}</td><td className="num">{b.machines}</td><td className="num">{pct(b.occ, 1)}</td><td className="num">{usd(b.cph)}</td><td className="num"><Delta v={single ? null : b.chg} /></td></tr>)}</tbody></table></div>
         </Panel>
         <Panel title="Hour-of-day occupancy" sub={`${zn[zone]} vs whole floor · Jan–Jun (from machine_hour)`} tip="Hourly profile computed by the team's q2_time_analysis.py from machine_hour; shown for the full half-year."
-          source={{ tables: ['5_optional/machine_hour'], script: 'q2_time_analysis.py → q2_outputs/q2_hourly_demand_by_zone.csv' }}>
+          source={{ tables: ['5_optional/machine_hour'], script: 'q2_time_analysis.py → analysis/q2_floor_demand/outputs/q2_hourly_demand_by_zone.csv' }}>
           <Legend items={[{ key: 'z', label: zn[zone], color: ZONE_COLORS[zone], line: true }, { key: 'f', label: 'Whole floor', color: '#858479', line: true }]} />
           <div style={{ height: 180 }}>
             <ResponsiveContainer>

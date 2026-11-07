@@ -1,30 +1,57 @@
-# Dashboard Royale
+# CASINOGUARD — TAMU Datathon 2026 · Dashboard Royale
 
-## Luck, Location, or a Leak?
+Casino financial intelligence for **The Gilded Ace**, a fictional 300-machine casino (synthetic data). The project answers the challenge's questions — which machines truly underperform, how floor demand changed, what downtime cost, how player results are distributed, what the comp program cost — and recommends priced actions for a $100,000 budget, backed by a forecast validated on a time-based holdout.
 
-> Management is about to replace the ten machines that earned the least. Your dashboard could stop an expensive mistake—or show that management is right.
->
-> Investigate six months at a fictional 300-machine casino. Explain what changed in demand, payouts, availability, and contribution. Show what tracked players wagered, received back, and actually won or lost. Recommend up to three actions within a $100,000 operations budget for the next 30 days, with evidence, uncertainty, and a way to measure success. Include one useful basic ML or time-series method. You may recommend an experiment, an inspection, or preserving the budget.
+## Repository layout
 
-Fictional casino; synthetic data calibrated to public aggregates.
+```
+.
+├── casinoguard/                 Interactive dashboard (React + TypeScript + Vite)
+│   ├── pipeline/build_data.py   Raw tables → dashboard JSON, with 82 verification checks
+│   ├── public/data/             Generated JSON consumed by the dashboard
+│   ├── src/                     App source (pages, components, Q1 scoring engine)
+│   ├── README.md                Setup, build and deployment
+│   └── CALCULATIONS.md          Every formula, definition and investigated discrepancy
+├── analysis/                    Exploratory Python analyses, one folder per question
+│   ├── q1_machine_performance/  Scripts + outputs/ (bottom-10 candidate ranking)
+│   ├── q2_floor_demand/         Scripts + outputs/ (zone, theme, traffic, hourly demand)
+│   ├── q3_maintenance/          Scripts + outputs/ (downtime, response, exposure)
+│   ├── q4_player_financials/    Scripts + outputs/ (player net, concentration, Gini)
+│   ├── q5_loyalty/              Comp cost, ledger and tier analysis
+│   └── exploration/             Initial data inspection scripts
+├── data/                        Challenge datasets (release 0.9.0-draft; .parquet and .csv.gz)
+├── reference/                   Challenge data dictionary, dataset reference, sources
+├── scripts/                     Challenge data-verification scripts
+├── docs/challenge/              Challenge brief: participant guide, original README, example layout
+└── .github/workflows/           GitHub Pages deployment for the dashboard
+```
 
-> **Draft release:** the data is `0.9.0-draft`. See the [release readiness review](reference/READINESS.md) for outstanding organizer tasks before sharing publicly.
+## Quick start
 
-**New here? Start with the [participant guide](GUIDE.md).** It covers the challenge, setup, the datasets, common mistakes and how to submit.
+Run the dashboard:
 
-🎰 **[View the example dashboard](https://tamu-datathon-org.github.io/dashboard-royale/example-dashboard.html)** (layout only; all values are placeholders)
+```bash
+cd casinoguard
+npm install
+npm run dev
+```
 
-| | |
-| --- | --- |
-| 📘 [Participant guide](GUIDE.md) | The challenge, setup, datasets, common issues, submission |
-| 📂 [`data/`](data/) | All tables, as `.parquet` and `.csv.gz` |
-| 📑 [Dataset reference](reference/DATASET.md) | Layout, row counts, conventions, money definitions |
-| 📖 [Data dictionary](reference/DATA_DICTIONARY.md) | Every table and column |
-| 🔗 [Sources](reference/SOURCES.md) | Where the real-world files come from |
+Regenerate the dashboard data from the raw tables (from the repository root):
 
-Original documentation, scripts and synthetic data use the [MIT license](LICENSE).
-Third-party source tables are excluded; see [publisher terms](reference/SOURCE_TERMS.md).
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r casinoguard/pipeline/requirements.txt
+python casinoguard/pipeline/build_data.py
+```
 
-Before publishing, run `python scripts/verify_data.py` and
-`python scripts/check_release.py` (requires Python 3.11+ and DuckDB).
-The release check currently reports missing calibration and publisher evidence.
+Run any exploratory analysis — see [analysis/README.md](analysis/README.md).
+
+## Documentation
+
+- [Dashboard setup and deployment](casinoguard/README.md)
+- [Calculations and data sources](casinoguard/CALCULATIONS.md)
+- [Analysis scripts and outputs](analysis/README.md)
+- [Challenge participant guide](docs/challenge/GUIDE.md) · [data dictionary](reference/DATA_DICTIONARY.md)
+
+The casino and its people are fictional; all data is synthetic except `data/4_context/real_sources`. Challenge materials are MIT-licensed by the organizers (see [LICENSE](LICENSE)).

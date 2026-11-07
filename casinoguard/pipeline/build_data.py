@@ -343,11 +343,11 @@ tm["coverage_hours"] = tm.coverage_minutes / 60
 zm = zm.merge(tm[["month", "zone_id", "entries", "coverage_hours"]], on=["month", "zone_id"], how="left")
 zm["zone_name"] = zm.zone_id.map(ZONE_NAME)
 
-# Cross-check daily coin-in per zone vs team's q2_outputs/zone_demand_change.csv
-team_zdc = pd.read_csv(ROOT / "q2_outputs/zone_demand_change.csv").set_index("zone_id")
+# Cross-check daily coin-in per zone vs team's analysis/q2_floor_demand/outputs/zone_demand_change.csv
+team_zdc = pd.read_csv(ROOT / "analysis/q2_floor_demand/outputs/zone_demand_change.csv").set_index("zone_id")
 for _, r in zm[zm.month.isin(["2025-01", "2025-06"])].iterrows():
     check(f"Q2 {r.zone_id} {r.month} daily coin-in", r.coin_in / r.days, team_zdc.loc[r.zone_id, r.month], tol=0.01,
-          source="q2_outputs/zone_demand_change.csv")
+          source="analysis/q2_floor_demand/outputs/zone_demand_change.csv")
 
 bm = act.groupby(["month", "bank_id", "zone_id"]).agg(
     coin_in=("coin_in_usd", "sum"), occupied_hours=("occupied_hours", "sum"),
@@ -379,7 +379,7 @@ for zid, g in zd.groupby("zone_id"):
     corr[zid] = r4(np.corrcoef(eph, gg.coin_in)[0, 1])
 
 # hourly profile by zone using machine_hour? Use team's output (computed from machine_hour) — documented.
-hourly = pd.read_csv(ROOT / "q2_outputs/q2_hourly_demand_by_zone.csv")
+hourly = pd.read_csv(ROOT / "analysis/q2_floor_demand/outputs/q2_hourly_demand_by_zone.csv")
 wkwe = act.groupby(["is_weekend", "zone_id"]).agg(coin_in=("coin_in_usd", "sum"), occupied_hours=("occupied_hours", "sum"),
                                                   available_hours=("available_hours", "sum"), days=("gaming_date", "nunique")).reset_index()
 

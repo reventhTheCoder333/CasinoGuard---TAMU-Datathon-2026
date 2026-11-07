@@ -43,7 +43,7 @@ pip install -r casinoguard/pipeline/requirements.txt
 python casinoguard/pipeline/build_data.py
 ```
 
-The pipeline reads `data/**` (plain `.csv`, or the original `.csv.gz` if unzipped files are absent), plus two team outputs it cross-checks or reuses (`q2_outputs/zone_demand_change.csv`, `q2_outputs/q2_hourly_demand_by_zone.csv`). It prints every verification check and **exits non-zero if any fails**. Runtime is a few seconds.
+The pipeline reads `data/**` (plain `.csv`, or the original `.csv.gz` if unzipped files are absent), plus two team outputs it cross-checks or reuses (`analysis/q2_floor_demand/outputs/zone_demand_change.csv`, `analysis/q2_floor_demand/outputs/q2_hourly_demand_by_zone.csv`). It prints every verification check and **exits non-zero if any fails**. Runtime is a few seconds.
 
 ### Production build
 

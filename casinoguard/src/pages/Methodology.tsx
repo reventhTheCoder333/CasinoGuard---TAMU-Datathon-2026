@@ -157,11 +157,11 @@ export default function Methodology() {
           </Panel>
           <Panel title="Team analysis scripts reused">
             <ul className="list small">
-              <li><code>finalize_bottom_10.py</code> → Q1 scoring (ported to <code>src/lib/q1.ts</code>)</li>
-              <li><code>q2_demand_analysis.py</code>, <code>q2_traffic_analysis.py</code>, <code>q2_time_analysis.py</code> → Q2 (outputs cross-checked)</li>
-              <li><code>analyze_maintenance.py</code>, <code>analyze_q3_timing.py</code> → Q3 exposure method</li>
-              <li><code>q4_*.py</code> → Q4 aggregation, concentration, Gini</li>
-              <li><code>q5_analysis.py</code> → Q5 costs, ledger and tier transitions</li>
+              <li><code>analysis/q1_machine_performance/finalize_bottom_10.py</code> → Q1 scoring (ported to <code>src/lib/q1.ts</code>)</li>
+              <li><code>analysis/q2_floor_demand/</code>: <code>q2_demand_analysis.py</code>, <code>q2_traffic_analysis.py</code>, <code>q2_time_analysis.py</code> → Q2 (outputs cross-checked)</li>
+              <li><code>analysis/q3_maintenance/</code>: <code>analyze_maintenance.py</code>, <code>analyze_q3_timing.py</code> → Q3 exposure method</li>
+              <li><code>analysis/q4_player_financials/q4_*.py</code> → Q4 aggregation, concentration, Gini</li>
+              <li><code>analysis/q5_loyalty/q5_analysis.py</code> → Q5 costs, ledger and tier transitions</li>
             </ul>
           </Panel>
           <Panel title="AI-use disclosure">

@@ -44,7 +44,7 @@ All figures are produced by `pipeline/build_data.py` (and, for the period-adjust
 - Traffic: `zone_traffic_hourly` hours mapped to gaming days; `counter_status = offline` dropped; entries per counter-hour = Σ entries ÷ (Σ coverage_minutes ÷ 60).
 - Change = last-month value ÷ first-month value − 1 for the selected period.
 - Correlation: Pearson r of daily entries per counter-hour and daily coin-in, per zone, Jan–Jun. Our values (e.g. Back Forty 0.979) differ slightly from the team's `q2_zone_traffic_correlations.csv` (0.977) because we map hours to gaming days and exclude offline hours.
-- Jan and Jun daily coin-in for all 7 zones match `q2_outputs/zone_demand_change.csv` (14 checks).
+- Jan and Jun daily coin-in for all 7 zones match `analysis/q2_floor_demand/outputs/zone_demand_change.csv` (14 checks).
 - Hour-of-day profile reuses the team's `q2_hourly_demand_by_zone.csv` (from `machine_hour`).
 
 ## Q3 — maintenance
