@@ -1,0 +1,8 @@
+zone_id,zone_name,daily_observations,traffic_demand_correlation
+Z-B40,Back Forty,181,0.9771979211953082
+Z-BAR,Bar Row,181,0.9121270545518007
+Z-ENT,Main Entrance,181,0.8987988884052619
+Z-GAR,Garage Entrance,181,0.9416942305591598
+Z-HL,High-Limit Room,181,0.9660281379537841
+Z-HTL,Hotel Corridor,181,0.9384882678549966
+Z-PIT,Center Pit,181,0.9657536001893855

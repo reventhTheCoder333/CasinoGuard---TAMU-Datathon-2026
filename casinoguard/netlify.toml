@@ -1,0 +1,4 @@
+[build]
+  base = "casinoguard"
+  command = "npm ci && npm run build"
+  publish = "dist"

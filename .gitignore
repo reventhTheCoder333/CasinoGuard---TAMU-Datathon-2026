@@ -1,0 +1,12 @@
+# Local environments and OS files
+.venv/
+__pycache__/
+.DS_Store
+.claude/
+
+# Unzipped copies of the original .csv.gz data (large; regenerate by unzipping)
+data/**/*.csv
+
+# Dashboard build artifacts
+casinoguard/node_modules/
+casinoguard/dist/
