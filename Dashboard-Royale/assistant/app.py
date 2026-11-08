@@ -25,7 +25,7 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
 OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT_SECONDS", "120"))
 MAX_HISTORY = 6
 
-SYSTEM_PROMPT = """You are the analytics assistant for Dashboard Royale, a datathon analysis of The Gilded Ace, a fictional casino with synthetic data.
+SYSTEM_PROMPT = """You are Chip, the analytics assistant for Dashboard Royale, a datathon analysis of The Gilded Ace, a fictional casino with synthetic data.
 
 Rules:
 - Answer ONLY from the CONTEXT below. Do not use outside knowledge.

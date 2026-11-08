@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 
 /**
- * Floating assistant: answers questions from the verified Q1–Q6 findings
+ * Chip, the floating assistant: answers questions from the verified Q1–Q6 findings
  * using the local Dashboard Royale assistant service (Ollama, no cloud APIs).
  *
  * It only works in local mode. A deployed copy (for example on Netlify) never
@@ -17,10 +17,12 @@ const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1'])
 /** True when the dashboard is served from this machine (dev server or local preview). */
 const LOCAL_MODE = import.meta.env.DEV || LOCAL_HOSTS.has(window.location.hostname)
 
+const CHIP_GREETING = "Hi, I'm Chip! Ask me a question."
+
 const LOCAL_ONLY_MESSAGE =
-  'The AI assistant runs on a local model (Ollama) and is available only when Dashboard Royale runs locally. Everything else on this dashboard works here.'
+  'Chip runs on a local model (Ollama) and is available only when Dashboard Royale runs locally. Everything else on this dashboard works here.'
 const OFFLINE_MESSAGE =
-  'The AI assistant is available only in local mode, with Ollama and the assistant service running. Start them with `brew services start ollama` and the service on port 8100 (see Dashboard-Royale/assistant/README.md).'
+  'Chip is available only in local mode, with Ollama and the assistant service running. Start them with `brew services start ollama` and the service on port 8100 (see Dashboard-Royale/assistant/README.md).'
 
 type Availability = 'checking' | 'ready' | 'offline' | 'local-only'
 
@@ -137,7 +139,7 @@ export function AssistantChat() {
           setAvailability('offline')
           throw new Error(OFFLINE_MESSAGE)
         }
-        throw new Error(typeof body?.detail === 'string' ? body.detail : `The assistant returned an error (${response.status}).`)
+        throw new Error(typeof body?.detail === 'string' ? body.detail : `Chip returned an error (${response.status}).`)
       }
 
       setAvailability('ready')
@@ -169,17 +171,17 @@ export function AssistantChat() {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls="assistant-panel"
-        aria-label={open ? 'Close AI assistant' : 'Open AI assistant'}
+        aria-label={open ? 'Close Chip' : 'Talk to Chip'}
       >
-        {open ? '×' : 'AI'}
+        {open ? '×' : 'Talk to Chip'}
       </button>
 
       {open && (
-        <aside id="assistant-panel" className="assistant-panel" role="dialog" aria-label="AI assistant">
+        <aside id="assistant-panel" className="assistant-panel" role="dialog" aria-label="Chip, the AI assistant">
           <header className="assistant-head">
             <div>
-              <div className="assistant-title">Ask the findings</div>
-              <div className="small muted">{LOCAL_MODE ? 'Local AI · answers only from verified Q1–Q6 results' : 'Local AI · available when running locally'}</div>
+              <div className="assistant-title">Chip</div>
+              <div className="small muted">{LOCAL_MODE ? 'Your local AI guide · answers only from verified Q1–Q6 results' : 'Your local AI guide · available when running locally'}</div>
             </div>
             {messages.length > 0 && (
               <button className="btn sm" onClick={() => setMessages([])} disabled={loading}>Clear</button>
@@ -187,6 +189,8 @@ export function AssistantChat() {
           </header>
 
           <div className="assistant-messages" ref={listRef} aria-live="polite">
+            {/* Chip's greeting: always first, shown before any question; not saved or sent to the model. */}
+            <div className="assistant-msg assistant"><div className="assistant-bubble">{CHIP_GREETING}</div></div>
             {availability === 'local-only' && (
               <div className="assistant-notice">
                 <div className="strong">Available in local mode only</div>
@@ -195,12 +199,12 @@ export function AssistantChat() {
             )}
             {availability === 'offline' && (
               <div className="assistant-notice">
-                <div className="strong">The AI assistant isn't running</div>
+                <div className="strong">Chip isn't running</div>
                 <p className="small secondary">{OFFLINE_MESSAGE}</p>
                 <button className="btn sm mt-s" onClick={checkAvailability}>Check again</button>
               </div>
             )}
-            {availability === 'checking' && messages.length === 0 && <p className="small muted">Connecting to the local model…</p>}
+            {availability === 'checking' && messages.length === 0 && <p className="small muted">Connecting Chip to the local model…</p>}
 
             {availability === 'ready' && messages.length === 0 && (
               <div className="assistant-empty">
@@ -232,7 +236,7 @@ export function AssistantChat() {
             ))}
 
             {loading && (
-              <div className="assistant-msg assistant"><div className="assistant-bubble assistant-typing">Thinking<span>.</span><span>.</span><span>.</span></div></div>
+              <div className="assistant-msg assistant"><div className="assistant-bubble assistant-typing">Chip is thinking<span>.</span><span>.</span><span>.</span></div></div>
             )}
           </div>
 
@@ -242,7 +246,7 @@ export function AssistantChat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input) } }}
-              placeholder="Ask about Q1–Q6…"
+              placeholder="Ask Chip about Q1–Q6…"
               rows={2}
               maxLength={1000}
               aria-label="Your question"
