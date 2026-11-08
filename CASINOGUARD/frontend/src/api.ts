@@ -46,4 +46,14 @@ export const api = {
   refreshSource: () => post("/api/source/refresh"),
   databricksSimulation: () => request<DatabricksSimulationStatus>("/api/databricks/simulation"),
   simulateDatabricks: (scenario: string) => post("/api/databricks/simulate", { scenario }),
+  dashboardEmbedConfig: () => request<DashboardEmbedConfig>("/api/databricks/dashboard/config"),
+  dashboardEmbedToken: () => post<{ token: string; expires_in: number }>("/api/databricks/dashboard/token"),
 };
+
+export interface DashboardEmbedConfig {
+  configured: boolean;
+  missing: string[];
+  instance_url: string | null;
+  workspace_id: string | null;
+  dashboard_id: string | null;
+}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertFeed } from "./components/AlertFeed";
 import { AnalyticsPage } from "./components/AnalyticsPage";
+import { DatabricksDashboardPage } from "./components/DatabricksDashboardPage";
 import { InvestigationDrawer } from "./components/InvestigationDrawer";
 import { NetworkGraph } from "./components/NetworkGraph";
 import { SimulatorPanel } from "./components/SimulatorPanel";
@@ -12,22 +13,25 @@ import { flaggedTransactionIds } from "./state";
 import type { DetectorKey, Severity } from "./types";
 import { useLiveData } from "./useLiveData";
 
+const viewFromHash = (): View =>
+  window.location.hash === "#analytics" ? "analytics" : window.location.hash === "#databricks" ? "databricks" : "console";
+
 export default function App() {
   const live = useLiveData();
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
   const [detectorFilter, setDetectorFilter] = useState<DetectorKey | null>(null);
   const [severityFilter, setSeverityFilter] = useState<Severity | null>(null);
 
-  const [view, setView] = useState<View>(() => (window.location.hash === "#analytics" ? "analytics" : "console"));
+  const [view, setView] = useState<View>(viewFromHash);
 
   useEffect(() => {
-    const onHash = () => setView(window.location.hash === "#analytics" ? "analytics" : "console");
+    const onHash = () => setView(viewFromHash());
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
   const changeView = (next: View) => {
-    window.location.hash = next === "analytics" ? "analytics" : "";
+    window.location.hash = next === "console" ? "" : next;
     setView(next);
   };
 
@@ -38,7 +42,7 @@ export default function App() {
   const selectedAlert = live.alerts.find((alert) => alert.id === selectedAlertId) ?? null;
 
   return (
-    <div className={`app ${view === "analytics" ? "app-analytics" : ""}`}>
+    <div className={`app ${view !== "console" ? "app-analytics" : ""}`}>
       <TopBar connection={live.connection} summary={live.summary} view={view} onViewChange={changeView} />
 
       {live.loadError && (
@@ -64,7 +68,9 @@ export default function App() {
 
       <StaleResultsBanner simulation={live.databricksSimulation} lastLoaded={source?.last_refreshed_at} />
 
-      {view === "analytics" ? (
+      {view === "databricks" ? (
+        <DatabricksDashboardPage />
+      ) : view === "analytics" ? (
         <AnalyticsPage alerts={live.alerts} summary={live.summary} detectors={live.detectors} onOpenAlert={setSelectedAlertId} />
       ) : (
       <>

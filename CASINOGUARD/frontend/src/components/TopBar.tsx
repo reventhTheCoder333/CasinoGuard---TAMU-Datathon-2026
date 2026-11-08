@@ -6,7 +6,13 @@ const CONNECTION_LABELS: Record<ConnectionState, string> = {
   reconnecting: "Reconnecting",
 };
 
-export type View = "console" | "analytics";
+export type View = "console" | "analytics" | "databricks";
+
+const VIEW_LABELS: Record<View, string> = {
+  console: "Live console",
+  analytics: "AML analytics",
+  databricks: "Databricks dashboard",
+};
 
 export function TopBar({
   connection,
@@ -34,9 +40,9 @@ export function TopBar({
       </div>
 
       <nav className="segmented view-switch" aria-label="Pages">
-        {(["console", "analytics"] as const).map((v) => (
+        {(["console", "analytics", "databricks"] as const).map((v) => (
           <button key={v} className={view === v ? "active" : ""} aria-current={view === v ? "page" : undefined} onClick={() => onViewChange(v)}>
-            {v === "console" ? "Live console" : "AML analytics"}
+            {VIEW_LABELS[v]}
           </button>
         ))}
       </nav>

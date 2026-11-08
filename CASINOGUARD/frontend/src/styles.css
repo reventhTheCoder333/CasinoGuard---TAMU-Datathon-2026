@@ -850,3 +850,53 @@ input[type="search"]:hover { border-color: rgba(255, 255, 255, 0.24); }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   :root { --glass: rgba(18, 25, 40, 0.95); --glass-strong: rgba(14, 20, 33, 0.98); }
 }
+
+/* ── Embedded Databricks AI/BI dashboard ─────────────────────────── */
+.dbx-page .analytics-head p { max-width: 70ch; margin: 0; }
+.dbx-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.dbx-actions a.button { text-decoration: none; display: inline-flex; align-items: center; }
+.dbx-frame-panel {
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+  /* Tall enough for a multi-widget page without a scroll trap; the embed scrolls itself. */
+  height: max(640px, calc(100vh - 190px));
+  min-height: 560px;
+}
+.dbx-frame { position: absolute; inset: 0; }
+.dbx-frame iframe { width: 100%; height: 100%; border: 0; display: block; border-radius: inherit; background: transparent; }
+.dbx-hidden { visibility: hidden; }
+.dbx-overlay {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; padding: 28px; text-align: center;
+  background: var(--glass-strong);
+  backdrop-filter: blur(12px);
+  animation: dbx-fade 0.25s ease-out;
+}
+.dbx-overlay p { margin: 0; max-width: 60ch; color: var(--text-2); line-height: 1.55; }
+.dbx-message h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600; color: var(--text); }
+.dbx-message[role="alert"] h2 { color: var(--critical-text); }
+.dbx-missing { list-style: none; margin: 4px 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.dbx-missing code, .dbx-message code {
+  font-family: "JetBrains Mono Variable", ui-monospace, monospace; font-size: 12px;
+  padding: 3px 8px; border-radius: 8px;
+  background: var(--accent-soft); border: 1px solid var(--accent-line); color: var(--text);
+}
+.dbx-message .button { margin-top: 8px; }
+.dbx-spinner {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 2.5px solid var(--accent-soft); border-top-color: var(--accent);
+  animation: dbx-spin 0.8s linear infinite;
+}
+@keyframes dbx-spin { to { transform: rotate(360deg); } }
+@keyframes dbx-fade { from { opacity: 0; } }
+@media (max-width: 760px) {
+  .dbx-page .analytics-head { flex-direction: column; align-items: stretch; }
+  .dbx-actions { justify-content: flex-start; }
+  .dbx-frame-panel { height: calc(100vh - 230px); min-height: 520px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dbx-spinner { animation-duration: 2.4s; }
+  .dbx-overlay { animation: none; }
+}

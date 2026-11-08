@@ -150,3 +150,23 @@ After loading, FastAPI compares each embedded pattern with the alerts Databricks
 
 - **Every run uploads new data.** Uploading replaces both CSV files in the volume each time.
 - **Local mode is unaffected.** With `CASINOGUARD_DATA_SOURCE=local`, the original simulator and all six local detectors work as before. The Databricks endpoints return 409 in that mode.
+
+## Embedded dashboard
+
+The **Databricks dashboard** page embeds the published AI/BI dashboard with
+`@databricks/aibi-client`, using Databricks' external-user embedding flow. The
+browser only ever receives a short-lived token scoped to that one dashboard.
+
+1. In the workspace, go to **Settings → Identity and access → Service principals**,
+   create a service principal, and select **Databricks SQL access** and **Workspace access**.
+2. On its page, generate an **OAuth secret** and copy the client ID and secret.
+3. Open the published dashboard, click **Share**, and give the service principal **CAN RUN**.
+   If the dashboard uses individual data permissions, also grant it `SELECT` on the tables it reads.
+4. In **Settings → Security → Embed dashboards**, allow embedding and approve
+   `http://localhost:5173` (and `http://localhost:8000` for the one-port build).
+5. Set `DATABRICKS_WORKSPACE_ID`, `DATABRICKS_DASHBOARD_ID`, `DATABRICKS_SP_CLIENT_ID`
+   and `DATABRICKS_SP_CLIENT_SECRET` in `.env`, then restart the API.
+
+`POST /api/databricks/dashboard/token` performs the three-step exchange
+(service principal token → dashboard `tokeninfo` → scoped token). The embed calls
+it again before the token expires, so long sessions keep working.

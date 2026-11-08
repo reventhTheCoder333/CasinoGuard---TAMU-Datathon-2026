@@ -30,6 +30,7 @@ from backend.services.detection_service import (
 from backend.services.graph_service import build_graph
 from backend.services.databricks_source import ReadOnlySourceError
 from backend.integrations.databricks_sql import DatabricksNotConfigured
+from backend.integrations import databricks_embed as dashboard_embed
 from backend.services import pipeline
 from backend.services.pipeline import (
     ingest_account,
@@ -406,3 +407,26 @@ def export_transactions_endpoint():
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=casinoguard_transactions.csv"},
     )
+
+
+# --------------------------------------------------
+# Embedded Databricks AI/BI dashboard
+# --------------------------------------------------
+
+@router.get("/databricks/dashboard/config")
+def dashboard_embed_config_endpoint():
+    """Identifiers the embed needs. Never includes credentials."""
+    return dashboard_embed.public_config()
+
+
+@router.post("/databricks/dashboard/token")
+def dashboard_embed_token_endpoint(response: Response):
+    """A short-lived token scoped to the published dashboard for one viewer."""
+    response.headers["Cache-Control"] = "no-store"
+
+    try:
+        return dashboard_embed.embedder.scoped_token()
+    except dashboard_embed.EmbedNotConfigured as error:
+        raise HTTPException(status_code=503, detail=str(error))
+    except dashboard_embed.EmbedError as error:
+        raise HTTPException(status_code=error.status, detail=str(error))
