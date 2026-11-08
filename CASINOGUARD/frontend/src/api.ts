@@ -34,6 +34,7 @@ export const api = {
   alerts: () => request<Alert[]>("/api/alerts"),
   investigation: (id: string) => request<Investigation>(`/api/alerts/${encodeURIComponent(id)}`),
   transactions: (limit: number) => request<Transaction[]>(`/api/transactions?limit=${limit}`),
+  allTransactions: () => request<Transaction[]>("/api/transactions"),
   graph: () => request<GraphPayload>("/api/graph"),
   detectors: () => request<DetectorInfo[]>("/api/detectors"),
   integrations: () => request<IntegrationStatus[]>("/api/integrations"),
