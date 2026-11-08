@@ -854,14 +854,17 @@ mf["machines"] = static.groupby("manufacturer").machine_id.nunique()
 mf["tickets_per_machine"] = mf.tickets / mf.machines
 ridge = mf.loc["Ridgeline"]
 
-selected = [action_cost("A-WAYFINDING", 1), action_cost("A-PREVENTIVE", 1), action_cost("A-COMP-PILOT", 1)]
+# Q6 plan: up to 3 action types (GUIDE.md §6); keeping money does not use a slot.
+selected = [action_cost("A-TECH-SHIFT", 1), action_cost("A-INSPECT", 10), action_cost("A-COMP-PILOT", 1)]
 spent = sum(a["total_cost"] for a in selected)
-alt = [action_cost("A-REPLACE-BUY", 10), action_cost("A-REPLACE-LEASE", 10), action_cost("A-TECH-SHIFT", 1),
-       action_cost("A-INSPECT", 10), action_cost("A-COMP-CHANGE", 1), action_cost("A-PROMO", 1)]
+assert len({a["action_type_id"] for a in selected}) <= 3, "more than 3 action types"
+assert spent <= 100000, "plan exceeds the $100,000 budget"
+alt = [action_cost("A-REPLACE-BUY", 10), action_cost("A-REPLACE-LEASE", 10), action_cost("A-WAYFINDING", 1),
+       action_cost("A-PREVENTIVE", 1), action_cost("A-COMP-CHANGE", 1), action_cost("A-PROMO", 1)]
 
 # Sensitivity (scenario) estimates — theo-based, clearly labelled as assumptions
-wf_days = selected[0]["operating_days"]
-pm_days = selected[1]["operating_days"]
+wf_days = action_cost("A-WAYFINDING", 1)["operating_days"]
+pm_days = action_cost("A-PREVENTIVE", 1)["operating_days"]
 ridge_exp_per_day = ridge.exposure / 181
 ridge_ids = static[static.manufacturer == "Ridgeline"].machine_id
 ridge_n = int(pdv[(pdv.gaming_date == END) & pdv.active & pdv.machine_id.isin(ridge_ids)].shape[0])

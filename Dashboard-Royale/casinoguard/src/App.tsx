@@ -19,7 +19,7 @@ export const NAV = [
   { to: '/q3', key: 'Q3', label: 'Maintenance Intelligence', group: 'Analyses' },
   { to: '/q4', key: 'Q4', label: 'Player Financial Intelligence', group: 'Analyses' },
   { to: '/q5', key: 'Q5', label: 'Loyalty Intelligence', group: 'Analyses' },
-  { to: '/recommendations', key: '$', label: 'Recommendations', group: 'Decisions' },
+  { to: '/q6', key: 'Q6', label: '$100,000 Budget', group: 'Analyses' },
   { to: '/model', key: 'ML', label: 'Forecast Model', group: 'Decisions' },
   { to: '/methodology', key: '§', label: 'Methodology & Evidence', group: 'Decisions' },
 ]
@@ -118,6 +118,7 @@ function Shell() {
             <Route path="/q3" element={<Q3 />} />
             <Route path="/q4" element={<Q4 />} />
             <Route path="/q5" element={<Q5 />} />
+            <Route path="/q6" element={<Recommendations />} />
             <Route path="/recommendations" element={<Recommendations />} />
             <Route path="/model" element={<Model />} />
             <Route path="/methodology" element={<Methodology />} />

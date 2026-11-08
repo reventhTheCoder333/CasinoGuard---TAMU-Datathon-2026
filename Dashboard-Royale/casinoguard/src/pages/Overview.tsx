@@ -139,13 +139,14 @@ export default function Overview() {
       </div>
 
       <div className="grid g2 mt">
-        <Panel title="The five questions" sub="Headline answer for each analysis (full Jan–Jun period) — click through for evidence">
+        <Panel title="The six questions" sub="Headline answer for each analysis (full Jan–Jun period) — click through for evidence">
           {[
             { k: 'Q1', to: '/q1', q: 'Which machines are underperforming?', a: <>All 10 preliminary candidates sit in <b>Back Forty</b>, where theo per available hour is {usd(ev.back_forty_theo_per_avail_hour)} vs {usd(ev.other_theo_per_avail_hour)} elsewhere. Location, not the machines, is the leading explanation.</> },
             { k: 'Q2', to: '/q2', q: 'How did demand change across the floor?', a: <>Floor demand shifted unevenly: {zoneMoves}. Back Forty's foot traffic per counter-hour changed {pctv(bfEntChg, 1)} alongside its {pctv(bfDailyChg, 1)} coin-in drop (daily r = {q2.data.traffic_demand_corr['Z-B40'].toFixed(3)}).</> },
             { k: 'Q3', to: '/q3', q: 'How much play was lost to downtime?', a: <>{num(faultDowntime, 0)} fault-repair hours ≈ {usd(q3.data.summary.est_exposure_fault as number, 0)} of <i>estimated</i> theo exposure. Ridgeline machines log {ridge.tickets_per_machine.toFixed(1)} repairs each vs {halc.tickets_per_machine.toFixed(1)} for Halcyon.</> },
             { k: 'Q4', to: '/q4', q: 'What did tracked players wager, get back and net?', a: <>{usd(full.wager, 0)} wagered, {usd(full.payout, 0)} returned, {usd(full.casino_net, 0)} casino net. {pctv(full.loss_share['5'])} of gross losses come from the top 5% of losing players.</> },
             { k: 'Q5', to: '/q5', q: 'What did comps cost, and did anything change?', a: <>{usd(q5.data.summary.economic_cost)} economic cost. From May 1, points charged per comp dollar roughly <b>halved in every tier</b>; comp cost / tracked theo rose {pctv(jan.cost_pct_tracked_theo)} → {pctv(jun.cost_pct_tracked_theo)}.</> },
+            { k: 'Q6', to: '/q6', q: 'Which actions would we fund with $100,000?', a: <>{recs.data.selected.map((a) => `${a.action_type_id}${a.quantity > 1 ? ` ×${a.quantity}` : ''}`).join(', ')}: <b>{usd(recs.data.spent, 0)}</b> invested, <b>{usd(recs.data.preserved, 0)}</b> preserved. Each is a 30-day test with a baseline and a comparison group.</> },
           ].map((x) => (
             <div className="qrow" key={x.k}>
               <div className="qk">{x.k}</div>
@@ -161,9 +162,9 @@ export default function Overview() {
               {recs.data.selected.map((a) => (
                 <li key={a.action_type_id}><b>{a.name}</b> — {usd(a.total_cost, 0)} <span className="muted">({a.action_type_id})</span></li>
               ))}
-              <li><b>Preserve {usd(recs.data.preserved, 0)}</b> — do not replace the 10 Back Forty machines on current evidence.</li>
+              <li><b>Preserve {usd(recs.data.preserved, 0)}</b> (A-HOLD) — no replacements on current evidence; funds are released only when a test supports it.</li>
             </ol>
-            <Link to="/recommendations" className="btn gold mt-s">View recommendations & measurement plans →</Link>
+            <Link to="/q6" className="btn gold mt-s">View Q6 budget & measurement plans →</Link>
           </Panel>
           <Callout title="How to read this dashboard" tone="gold">
             Every number is computed from the original tables by <code>pipeline/build_data.py</code>; the team's verified Q1–Q5 results are re-derived and asserted ({meta.data.checks_passed}/{meta.data.checks_total} checks pass).

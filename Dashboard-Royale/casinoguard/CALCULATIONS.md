@@ -80,14 +80,17 @@ All figures are produced by `pipeline/build_data.py` (and, for the period-adjust
 
 `quantity × (unit_cost_cents + recurring_cost_cents_per_day × max(0, 30 − lead_days)) ÷ 100`
 
-| Action | Qty | Cost | Break-even (in horizon) |
-| --- | ---: | ---: | --- |
-| A-WAYFINDING (Back Forty) | 1 | $7,500 | 2.84 % theo lift over 20 days |
-| A-PREVENTIVE (Ridgeline) | 1 | $9,000 | 42.4 % fewer Ridgeline faults over 23 days (exposure + direct repair cost) |
-| A-COMP-PILOT | 1 | $4,000 | measured by treatment vs control |
-| Preserved | | $79,500 | |
+Q6 funds up to 3 action types (GUIDE.md §6); keeping money does not use a slot.
 
-Benefit scenarios are estimates; the catalogue provides prices and limits only.
+| Action | Qty | Unit cost | Cost | Lead days → days of effect | How it is judged |
+| --- | ---: | ---: | ---: | --- | --- |
+| A-TECH-SHIFT | 1 | $11,520 | $11,520 | 7 → 23 | Response time, repair duration and fault downtime vs the Jan–Jun baseline and unchanged shifts. On estimated exposure it cannot pay back within 30 days (response is 27.9 % of fault downtime, ≤ $4,089 per 30 days); it is a measured test. |
+| A-INSPECT (the 10 Q1 candidates) | 10 | $1,200 | $12,000 | 1 → 29 | Faults and paytable issues found and corrected; later availability vs uninspected Back Forty machines. |
+| A-COMP-PILOT | 1 | $4,000 | $4,000 | 5 → 25 | Incremental net revenue and repeat visits, treatment vs randomised control. |
+| A-HOLD (preserved) | 1 | $0 | $72,480 kept | — | Released only when a test supports another investment. |
+| **Total** | | | **$100,000** | | $27,520 invested + $72,480 preserved |
+
+All recurring costs for these actions are $0. Effects are hypotheses to test; the catalogue provides prices and limits only.
 
 ## Data sources
 

@@ -131,8 +131,8 @@ export default function Model() {
         </Panel>
         <Panel title="Which decision this informs">
           <ul className="list">
-            <li><b>When to take machines down.</b> Tuesday and Wednesday have the lowest coin-in (then Monday); Friday–Saturday are highest. The 90-minute Ridgeline preventive sweeps (Action 2) and any machine moves should be scheduled early in the week, in quiet hours.</li>
-            <li><b>Measuring July actions.</b> The frozen forecast gives each day's expected coin-in without intervention, so Back Forty's wayfinding test (Action 1) is judged against a counterfactual, not against a seasonal June.</li>
+            <li><b>When to take machines down.</b> Tuesday and Wednesday have the lowest coin-in (then Monday); Friday–Saturday are highest. The 120-minute machine inspections (Q6, A-INSPECT) and any later machine moves should be scheduled early in the week, in quiet hours.</li>
+            <li><b>Measuring July actions.</b> The frozen forecast gives each day's expected coin-in without intervention, so floor-level effects of the Q6 tests are judged against a counterfactual, not against a seasonal June.</li>
             <li><b>What it does not justify.</b> The event coefficient is not evidence that a $15,000 promotion weekend would pay back; we did not fund one.</li>
           </ul>
           <div className="table-wrap mt-s"><table className="dt"><thead><tr><th>Weekday</th><th className="num">Train avg (Jan–Apr)</th><th className="num">Holdout avg (May–Jun)</th></tr></thead>
