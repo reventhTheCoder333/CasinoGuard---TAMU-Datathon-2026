@@ -49,28 +49,37 @@ type ColorMode = 'zone' | 'theo' | 'occupancy'
 const FULL_PERIOD_DAYS = 181
 type OrbitControlsImpl = React.ComponentRef<typeof OrbitControls>
 const MACHINE_MAX_ZOOM = 60
+const MARKER_ZOOM = 9
 
 // ---------------------------------------------------------------------------
-// Reusable slot-machine model: four parts, each drawn as one instanced mesh.
+// Reusable slot-machine model: five parts, each drawn as one instanced mesh.
 // ---------------------------------------------------------------------------
+
+const REDUCED_MOTION = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
 const PARTS = {
-  plinth: { size: [1.1, 0.14, 0.86], offset: [0, 0.07, 0] },
-  cabinet: { size: [0.96, 1.42, 0.68], offset: [0, 0.14 + 0.71, 0] },
-  screen: { size: [0.78, 0.56, 0.03], offset: [0, 1.12, 0.35] },
-  topper: { size: [0.96, 0.26, 0.5], offset: [0, 1.56 + 0.13, -0.06] },
+  plinth: { size: [1.08, 0.14, 0.86], offset: [0, 0.07, 0], tilt: 0 },
+  cabinet: { size: [0.94, 1.42, 0.66], offset: [0, 0.14 + 0.71, -0.02], tilt: 0 },
+  deck: { size: [0.9, 0.07, 0.3], offset: [0, 0.9, 0.38], tilt: -0.32 },
+  screen: { size: [0.76, 0.54, 0.03], offset: [0, 1.2, 0.32], tilt: 0 },
+  topper: { size: [0.94, 0.24, 0.48], offset: [0, 1.56 + 0.12, -0.06], tilt: 0 },
 } as const
+type Part = keyof typeof PARTS
+const PART_KEYS = Object.keys(PARTS) as Part[]
+const HOVER_LIFT = 0.12
 
 const boxes = Object.fromEntries(
   Object.entries(PARTS).map(([k, p]) => [k, new THREE.BoxGeometry(...p.size)]),
-) as Record<keyof typeof PARTS, THREE.BoxGeometry>
+) as Record<Part, THREE.BoxGeometry>
 
-function partMatrix(m: PlacedMachine, part: keyof typeof PARTS, target: THREE.Matrix4) {
-  const [ox, oy, oz] = PARTS[part].offset
-  const rotation = new THREE.Matrix4().makeRotationY(m.rot)
-  const offset = new THREE.Vector3(ox, oy, oz).applyMatrix4(rotation)
-  target.copy(rotation).setPosition(m.x + offset.x, offset.y, m.z + offset.z)
-  return target
+const _rot = new THREE.Matrix4(), _tilt = new THREE.Matrix4(), _off = new THREE.Vector3()
+function partMatrix(m: PlacedMachine, part: Part, target: THREE.Matrix4, lift = 0) {
+  const { offset: [ox, oy, oz], tilt } = PARTS[part]
+  _rot.makeRotationY(m.rot)
+  _off.set(ox, oy, oz).applyMatrix4(_rot)
+  target.copy(_rot)
+  if (tilt) target.multiply(_tilt.makeRotationX(tilt))
+  return target.setPosition(m.x + _off.x, _off.y + lift, m.z + _off.z)
 }
 
 function Machines({ machines, colors, hovered, selected, onHover, onSelect }: {
@@ -84,36 +93,58 @@ function Machines({ machines, colors, hovered, selected, onHover, onSelect }: {
   const refs = {
     plinth: useRef<THREE.InstancedMesh>(null),
     cabinet: useRef<THREE.InstancedMesh>(null),
+    deck: useRef<THREE.InstancedMesh>(null),
     screen: useRef<THREE.InstancedMesh>(null),
     topper: useRef<THREE.InstancedMesh>(null),
   }
 
+  // Positions: hovered and selected machines rise slightly off their base.
   useLayoutEffect(() => {
     const matrix = new THREE.Matrix4()
-    for (const part of Object.keys(PARTS) as (keyof typeof PARTS)[]) {
+    for (const part of PART_KEYS) {
       const mesh = refs[part].current
       if (!mesh) continue
-      machines.forEach((m, i) => mesh.setMatrixAt(i, partMatrix(m, part, matrix)))
+      machines.forEach((m, i) => {
+        const lift = part === 'plinth' ? 0 : i === hovered || i === selected ? HOVER_LIFT : 0
+        mesh.setMatrixAt(i, partMatrix(m, part, matrix, lift))
+      })
       mesh.instanceMatrix.needsUpdate = true
       mesh.computeBoundingSphere()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [machines])
+  }, [machines, hovered, selected])
 
   useLayoutEffect(() => {
-    const cabinet = refs.cabinet.current, screen = refs.screen.current, topper = refs.topper.current, plinth = refs.plinth.current
-    if (!cabinet || !screen || !topper || !plinth) return
-    const body = new THREE.Color('#2a303c'), hot = new THREE.Color('#4a5466'), gold = new THREE.Color('#d4b169')
-    const base = new THREE.Color('#161a22'), red = new THREE.Color('#7a1d1d')
+    const { cabinet, deck, topper, plinth } = Object.fromEntries(PART_KEYS.map((k) => [k, refs[k].current])) as Record<Part, THREE.InstancedMesh | null>
+    if (!cabinet || !deck || !topper || !plinth) return
+    const body = new THREE.Color('#262c38'), hot = new THREE.Color('#465165'), gold = new THREE.Color('#d4b169')
+    const base = new THREE.Color('#12161f'), red = new THREE.Color('#5c1818'), deckC = new THREE.Color('#1a1e27')
     machines.forEach((m, i) => {
       cabinet.setColorAt(i, i === selected ? gold : i === hovered ? hot : body)
-      screen.setColorAt(i, colors[i])
+      deck.setColorAt(i, i === selected ? gold : deckC)
       topper.setColorAt(i, colors[i])
       plinth.setColorAt(i, m.bottomRank ? red : base)
     })
-    for (const mesh of [cabinet, screen, topper, plinth]) if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+    for (const mesh of [cabinet, deck, topper, plinth]) if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [machines, colors, hovered, selected])
+
+  // Screens: the data colour with a slow, staggered shimmer (off for reduced motion).
+  const tick = useRef(0)
+  const tmp = useMemo(() => new THREE.Color(), [])
+  useFrame(({ clock }, delta) => {
+    const screen = refs.screen.current
+    if (!screen) return
+    tick.current += delta
+    if (tick.current < 0.08 && screen.instanceColor) return
+    tick.current = 0
+    const t = clock.elapsedTime
+    machines.forEach((m, i) => {
+      const k = REDUCED_MOTION ? 1 : 0.9 + 0.14 * Math.sin(t * 1.4 + i * 0.73 + m.x * 0.05)
+      screen.setColorAt(i, tmp.copy(colors[i]).multiplyScalar(i === selected ? 1.25 : k))
+    })
+    if (screen.instanceColor) screen.instanceColor.needsUpdate = true
+  })
 
   const pick = (e: ThreeEvent<PointerEvent | MouseEvent>) => (e.instanceId === undefined ? null : e.instanceId)
   const handlers = {
@@ -125,10 +156,37 @@ function Machines({ machines, colors, hovered, selected, onHover, onSelect }: {
 
   return (
     <group>
-      <instancedMesh ref={refs.plinth} args={[boxes.plinth, undefined, n]} {...handlers}><meshStandardMaterial roughness={0.9} /></instancedMesh>
-      <instancedMesh ref={refs.cabinet} args={[boxes.cabinet, undefined, n]} {...handlers}><meshStandardMaterial roughness={0.45} metalness={0.35} /></instancedMesh>
+      <instancedMesh ref={refs.plinth} args={[boxes.plinth, undefined, n]} receiveShadow {...handlers}><meshStandardMaterial roughness={0.85} metalness={0.1} /></instancedMesh>
+      <instancedMesh ref={refs.cabinet} args={[boxes.cabinet, undefined, n]} castShadow receiveShadow {...handlers}><meshStandardMaterial roughness={0.38} metalness={0.55} envMapIntensity={0.6} /></instancedMesh>
+      <instancedMesh ref={refs.deck} args={[boxes.deck, undefined, n]} castShadow {...handlers}><meshStandardMaterial roughness={0.5} metalness={0.4} /></instancedMesh>
       <instancedMesh ref={refs.screen} args={[boxes.screen, undefined, n]} {...handlers}><meshBasicMaterial toneMapped={false} /></instancedMesh>
-      <instancedMesh ref={refs.topper} args={[boxes.topper, undefined, n]} {...handlers}><meshStandardMaterial roughness={0.35} emissive="#111" /></instancedMesh>
+      <instancedMesh ref={refs.topper} args={[boxes.topper, undefined, n]} castShadow {...handlers}><meshBasicMaterial toneMapped={false} /></instancedMesh>
+    </group>
+  )
+}
+
+/** Gold ring and a soft light beam over the selected machine. */
+function SelectionMarker({ machine }: { machine: PlacedMachine | null }) {
+  const group = useRef<THREE.Group>(null)
+  const ring = useRef<THREE.Mesh>(null)
+  const beamMat = useRef<THREE.MeshBasicMaterial>(null)
+  useFrame(({ clock }) => {
+    if (!machine) return
+    const t = clock.elapsedTime
+    if (ring.current && !REDUCED_MOTION) ring.current.rotation.z = t * 0.8
+    if (beamMat.current) beamMat.current.opacity = REDUCED_MOTION ? 0.14 : 0.1 + 0.06 * (Math.sin(t * 2.2) + 1) / 2
+  })
+  if (!machine) return null
+  return (
+    <group ref={group} position={[machine.x, 0, machine.z]}>
+      <mesh ref={ring} rotation-x={-Math.PI / 2} position-y={0.05} raycast={() => null}>
+        <ringGeometry args={[0.95, 1.12, 48, 1, 0, Math.PI * 1.6]} />
+        <meshBasicMaterial color="#e6c47c" transparent opacity={0.95} toneMapped={false} depthWrite={false} />
+      </mesh>
+      <mesh position-y={4} raycast={() => null}>
+        <cylinderGeometry args={[0.55, 0.85, 8, 32, 1, true]} />
+        <meshBasicMaterial ref={beamMat} color="#f3d896" transparent opacity={0.12} side={THREE.DoubleSide} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
+      </mesh>
     </group>
   )
 }
@@ -144,7 +202,7 @@ const BottomTenGlow = memo(function BottomTenGlow({ machines }: { machines: Plac
   useLayoutEffect(() => {
     const matrix = new THREE.Matrix4()
     targets.forEach((m, i) => {
-      matrix.makeRotationX(-Math.PI / 2).setPosition(m.x, 0.02, m.z)
+      matrix.makeRotationX(-Math.PI / 2).setPosition(m.x, 0.045, m.z) // just above the zone pad
       ring.current?.setMatrixAt(i, matrix)
       halo.current?.setMatrixAt(i, matrix)
     })
@@ -188,19 +246,108 @@ function zoneBounds(floor: FloorData) {
   return bounds
 }
 
+// Procedural textures (drawn once): a patterned casino carpet and a soft light pool.
+let carpetTexture: THREE.CanvasTexture | null = null
+function carpet() {
+  if (carpetTexture) return carpetTexture
+  const n = 256, c = document.createElement('canvas')
+  c.width = c.height = n
+  const g = c.getContext('2d')!
+  g.fillStyle = '#1a2440'
+  g.fillRect(0, 0, n, n)
+  const img = g.getImageData(0, 0, n, n)
+  for (let i = 0; i < img.data.length; i += 4) {
+    const v = (Math.random() - 0.5) * 10
+    img.data[i] += v; img.data[i + 1] += v; img.data[i + 2] += v * 1.4
+  }
+  g.putImageData(img, 0, 0)
+  g.strokeStyle = 'rgba(212, 177, 105, 0.2)'
+  g.lineWidth = 2
+  g.beginPath(); g.moveTo(n / 2, 0); g.lineTo(n, n / 2); g.lineTo(n / 2, n); g.lineTo(0, n / 2); g.closePath(); g.stroke()
+  g.strokeStyle = 'rgba(120, 140, 200, 0.07)'
+  g.beginPath(); g.moveTo(n / 2, n * 0.18); g.lineTo(n * 0.82, n / 2); g.lineTo(n / 2, n * 0.82); g.lineTo(n * 0.18, n / 2); g.closePath(); g.stroke()
+  g.fillStyle = 'rgba(212, 177, 105, 0.22)'
+  for (const [x, y] of [[n / 2, n / 2], [0, 0], [n, 0], [0, n], [n, n]]) { g.beginPath(); g.arc(x, y, 3.2, 0, Math.PI * 2); g.fill() }
+  carpetTexture = new THREE.CanvasTexture(c)
+  carpetTexture.wrapS = carpetTexture.wrapT = THREE.RepeatWrapping
+  carpetTexture.colorSpace = THREE.SRGBColorSpace
+  carpetTexture.anisotropy = 8
+  return carpetTexture
+}
+
+let poolTexture: THREE.CanvasTexture | null = null
+function lightPool() {
+  if (poolTexture) return poolTexture
+  const n = 128, c = document.createElement('canvas')
+  c.width = c.height = n
+  const g = c.getContext('2d')!
+  const grad = g.createRadialGradient(n / 2, n / 2, 0, n / 2, n / 2, n / 2)
+  grad.addColorStop(0, 'rgba(255,255,255,1)')
+  grad.addColorStop(0.45, 'rgba(255,255,255,0.35)')
+  grad.addColorStop(1, 'rgba(255,255,255,0)')
+  g.fillStyle = grad
+  g.fillRect(0, 0, n, n)
+  poolTexture = new THREE.CanvasTexture(c)
+  poolTexture.colorSpace = THREE.SRGBColorSpace
+  return poolTexture
+}
+
+// The floor footprint: every slot, entrance and outlet, with a margin.
+const FLOOR = { minX: -6, maxX: 142, minZ: -10, maxZ: 120 }
+const FLOOR_W = FLOOR.maxX - FLOOR.minX, FLOOR_D = FLOOR.maxZ - FLOOR.minZ
+const FLOOR_C: [number, number] = [(FLOOR.minX + FLOOR.maxX) / 2, (FLOOR.minZ + FLOOR.maxZ) / 2]
+const WARM = new THREE.Color('#ffd9a0')
+
 const FloorScene = memo(function FloorScene({ floor, focusZone }: { floor: FloorData; focusZone: string | null }) {
   const bounds = useMemo(() => zoneBounds(floor), [floor])
   const hub = new Map(floor.zones.map((z) => [z.zone_id, z]))
   const pad = 2.5
+  const texture = useMemo(() => {
+    const t = carpet().clone()
+    t.needsUpdate = true
+    t.repeat.set(FLOOR_W / 4, FLOOR_D / 4)
+    return t
+  }, [])
+  const trim = 0.28
 
   return (
     <group>
-      <mesh rotation-x={-Math.PI / 2} position={[67, -0.01, 54]} receiveShadow>
-        <planeGeometry args={[160, 140]} />
-        <meshStandardMaterial color="#0d1322" roughness={1} />
+      {/* Surround and carpeted floor with a gold trim */}
+      <mesh rotation-x={-Math.PI / 2} position={[FLOOR_C[0], -0.06, FLOOR_C[1]]} receiveShadow>
+        <planeGeometry args={[FLOOR_W + 120, FLOOR_D + 120]} />
+        <meshStandardMaterial color="#05070d" roughness={1} />
       </mesh>
-      <gridHelper args={[160, 32, '#1c2436', '#141b2a']} position={[67, 0, 54]} />
+      <mesh rotation-x={-Math.PI / 2} position={[FLOOR_C[0], -0.02, FLOOR_C[1]]} receiveShadow>
+        <planeGeometry args={[FLOOR_W, FLOOR_D]} />
+        <meshStandardMaterial map={texture} color="#e4e8f2" roughness={0.92} metalness={0} />
+      </mesh>
+      {[
+        [FLOOR_C[0], FLOOR.minZ, FLOOR_W + trim, trim], [FLOOR_C[0], FLOOR.maxZ, FLOOR_W + trim, trim],
+        [FLOOR.minX, FLOOR_C[1], trim, FLOOR_D + trim], [FLOOR.maxX, FLOOR_C[1], trim, FLOOR_D + trim],
+      ].map(([x, z, w, d], i) => (
+        <mesh key={i} position={[x, 0.05, z]} castShadow receiveShadow>
+          <boxGeometry args={[w, 0.14, d]} />
+          <meshStandardMaterial color="#c9a45c" metalness={0.85} roughness={0.28} />
+        </mesh>
+      ))}
 
+      {/* Walkways: paths between zone hubs */}
+      {floor.walkways.map((w) => {
+        const a = hub.get(w.zone_a), b = hub.get(w.zone_b)
+        if (!a || !b) return null
+        const dx = b.x - a.x, dz = b.y - a.y, len = Math.hypot(dx, dz)
+        return (
+          <group key={w.walkway_id}>
+            <mesh rotation-x={-Math.PI / 2} rotation-z={-Math.atan2(dz, dx)} position={[(a.x + b.x) / 2, 0.004, (a.y + b.y) / 2]} receiveShadow>
+              <planeGeometry args={[len, 3.2]} />
+              <meshStandardMaterial color="#1a2236" roughness={0.9} transparent opacity={0.85} />
+            </mesh>
+            <Line points={[[a.x, 0.02, a.y], [b.x, 0.02, b.y]]} color="#c9a45c" lineWidth={1} transparent opacity={0.35} dashed dashSize={1.2} gapSize={1} />
+          </group>
+        )
+      })}
+
+      {/* Zones: inlaid pads, a glowing edge and a warm light pool */}
       {floor.zones.map((z) => {
         const b = bounds.get(z.zone_id)
         if (!b) return null
@@ -208,30 +355,88 @@ const FloorScene = memo(function FloorScene({ floor, focusZone }: { floor: Floor
         const cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2
         const color = ZONE_COLORS[z.zone_id] ?? '#5b6270'
         const dim = focusZone && focusZone !== z.zone_id
+        const padColor = new THREE.Color('#0f1526').lerp(new THREE.Color(color), dim ? 0.06 : 0.16)
         const corners: [number, number, number][] = [
-          [b.minX - pad, 0.01, b.minZ - pad], [b.maxX + pad, 0.01, b.minZ - pad],
-          [b.maxX + pad, 0.01, b.maxZ + pad], [b.minX - pad, 0.01, b.maxZ + pad], [b.minX - pad, 0.01, b.minZ - pad],
+          [b.minX - pad, 0.05, b.minZ - pad], [b.maxX + pad, 0.05, b.minZ - pad],
+          [b.maxX + pad, 0.05, b.maxZ + pad], [b.minX - pad, 0.05, b.maxZ + pad], [b.minX - pad, 0.05, b.minZ - pad],
         ]
         return (
           <group key={z.zone_id}>
-            <mesh rotation-x={-Math.PI / 2} position={[cx, 0.005, cz]}>
-              <planeGeometry args={[w, d]} />
-              <meshBasicMaterial color={color} transparent opacity={dim ? 0.03 : 0.1} depthWrite={false} />
+            <mesh position={[cx, 0.015, cz]} receiveShadow>
+              <boxGeometry args={[w, 0.03, d]} />
+              <meshStandardMaterial color={padColor} roughness={0.75} metalness={0.15} />
             </mesh>
-            <Line points={corners} color={color} lineWidth={1} transparent opacity={dim ? 0.25 : 0.8} />
+            <Line points={corners} color={color} lineWidth={1.4} transparent opacity={dim ? 0.2 : 0.75} />
+            <mesh rotation-x={-Math.PI / 2} position={[cx, 0.035, cz]} raycast={() => null}>
+              <planeGeometry args={[Math.max(w, d) * 1.25, Math.max(w, d) * 1.25]} />
+              <meshBasicMaterial map={lightPool()} color={WARM.clone().lerp(new THREE.Color(color), 0.35)} transparent opacity={dim ? 0.05 : 0.26}
+                blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
+            </mesh>
           </group>
         )
       })}
 
-      {floor.walkways.map((w) => {
-        const a = hub.get(w.zone_a), b = hub.get(w.zone_b)
-        if (!a || !b) return null
-        return <Line key={w.walkway_id} points={[[a.x, 0.03, a.y], [b.x, 0.03, b.y]]} color="#3a4250" lineWidth={1} dashed dashSize={1.2} gapSize={0.8} />
-      })}
+      {/* Entrances: gold pylons with a lit floor ring */}
+      {floor.entrances.map((e) => (
+        <group key={e.location_id} position={[e.x, 0, e.y]}>
+          <mesh position-y={1.6} castShadow>
+            <cylinderGeometry args={[0.22, 0.3, 3.2, 20]} />
+            <meshStandardMaterial color="#c9a45c" metalness={0.9} roughness={0.25} />
+          </mesh>
+          <mesh position-y={3.35}>
+            <sphereGeometry args={[0.34, 20, 16]} />
+            <meshBasicMaterial color="#ffe2a3" toneMapped={false} />
+          </mesh>
+          <mesh rotation-x={-Math.PI / 2} position-y={0.04} raycast={() => null}>
+            <ringGeometry args={[1.1, 1.35, 40]} />
+            <meshBasicMaterial color="#e6c47c" transparent opacity={0.7} toneMapped={false} depthWrite={false} />
+          </mesh>
+        </group>
+      ))}
 
+      {/* Bars and restaurants: round counters with a gold rim */}
+      {floor.outlets.map((o) => (
+        <group key={o.location_id} position={[o.x, 0, o.y]}>
+          <mesh position-y={0.55} castShadow receiveShadow>
+            <cylinderGeometry args={[2.4, 2.5, 1.1, 40]} />
+            <meshStandardMaterial color="#1c1712" roughness={0.55} metalness={0.25} />
+          </mesh>
+          <mesh position-y={1.11} rotation-x={-Math.PI / 2}>
+            <torusGeometry args={[2.38, 0.07, 10, 48]} />
+            <meshStandardMaterial color="#c9a45c" metalness={0.9} roughness={0.25} />
+          </mesh>
+          <mesh position-y={1.12} rotation-x={-Math.PI / 2}>
+            <circleGeometry args={[1.4, 32]} />
+            <meshBasicMaterial color="#3a2a14" toneMapped={false} />
+          </mesh>
+        </group>
+      ))}
     </group>
   )
 })
+
+/** Key light with soft shadows over the whole floor, plus a cool rim light. */
+function Lights() {
+  const key = useRef<THREE.DirectionalLight>(null)
+  useLayoutEffect(() => {
+    const l = key.current
+    if (!l) return
+    l.target.position.set(FLOOR_C[0], 0, FLOOR_C[1])
+    l.target.updateMatrixWorld()
+    const cam = l.shadow.camera
+    cam.left = -110; cam.right = 110; cam.top = 110; cam.bottom = -110; cam.near = 1; cam.far = 420
+    cam.updateProjectionMatrix()
+  }, [])
+  return (
+    <>
+      <hemisphereLight args={['#c3cfea', '#0a0d16', 0.7]} />
+      <ambientLight intensity={0.12} />
+      <directionalLight ref={key} position={[FLOOR_C[0] - 70, 140, FLOOR_C[1] + 55]} intensity={1.8} color="#ffe6c4"
+        castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0004} shadow-normalBias={0.03} shadow-radius={4} />
+      <directionalLight position={[FLOOR_C[0] + 90, 60, FLOOR_C[1] - 80]} intensity={0.35} color="#8fb0ff" />
+    </>
+  )
+}
 
 // ---------------------------------------------------------------------------
 // Labels: plain DOM nodes over the canvas, positioned from 3D anchors each frame
@@ -247,14 +452,22 @@ function Projector({ anchors, nodes, tipAnchor, tipNode }: {
 }) {
   const { camera, size } = useThree()
   const v = useMemo(() => new THREE.Vector3(), [])
-  const place = (node: HTMLElement, pos: THREE.Vector3) => {
+  const place = (node: HTMLElement, pos: THREE.Vector3, anchor = '-50%, -50%') => {
     v.copy(pos).project(camera)
     const x = ((v.x + 1) / 2) * size.width, y = ((1 - v.y) / 2) * size.height
-    node.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`
+    node.style.transform = `translate(${x}px, ${y}px) translate(${anchor})`
   }
   useFrame(() => {
-    anchors.forEach((a, i) => { const node = nodes.current?.[i]; if (node) place(node, a.pos) })
-    if (tipNode.current && tipAnchor) place(tipNode.current, tipAnchor)
+    // Zone names sit above their anchor and markers below their point, so they do not collide.
+    // Entrance and outlet names appear once zoomed in, so the overview stays uncluttered.
+    const showMarkers = (camera as THREE.OrthographicCamera).zoom >= MARKER_ZOOM
+    anchors.forEach((a, i) => {
+      const node = nodes.current?.[i]
+      if (!node) return
+      place(node, a.pos, a.kind === 'zone' ? '-50%, -115%' : '-50%, 10px')
+      if (a.kind === 'marker') node.style.opacity = showMarkers ? '1' : '0'
+    })
+    if (tipNode.current && tipAnchor) place(tipNode.current, tipAnchor, '-50%, -120%')
   })
   return null
 }
@@ -266,8 +479,8 @@ function labelAnchors(floor: FloorData): Anchor[] {
     return b ? [{ key: z.zone_id, text: z.name, kind: 'zone' as const, color: ZONE_COLORS[z.zone_id], pos: new THREE.Vector3((b.minX + b.maxX) / 2, 0.1, b.minZ - 3.7) }] : []
   })
   const markers = [
-    ...floor.entrances.map((e) => ({ key: e.location_id, text: `⇥ ${e.name}`, kind: 'marker' as const, pos: new THREE.Vector3(e.x, 0.1, e.y) })),
-    ...floor.outlets.map((o) => ({ key: o.location_id, text: `◍ ${o.name}`, kind: 'marker' as const, pos: new THREE.Vector3(o.x, 0.1, o.y) })),
+    ...floor.entrances.map((e) => ({ key: e.location_id, text: e.name, kind: 'marker' as const, pos: new THREE.Vector3(e.x, 0.1, e.y) })),
+    ...floor.outlets.map((o) => ({ key: o.location_id, text: o.name, kind: 'marker' as const, pos: new THREE.Vector3(o.x, 1.2, o.y) })),
   ]
   return [...zones, ...markers]
 }
@@ -276,27 +489,51 @@ function labelAnchors(floor: FloorData): Anchor[] {
 // Camera: isometric view, focus on a zone, reset
 // ---------------------------------------------------------------------------
 
-interface View { target: THREE.Vector3; zoom: number }
+interface View { target: THREE.Vector3; zoom: number; theta?: number; phi?: number }
+
+const ISO_THETA = Math.PI / 4            // camera azimuth of the default isometric view
+const ISO_PHI = Math.acos(1 / Math.sqrt(3)) // ~54.7° from vertical
+const TOP_PHI = 0.06
 
 function CameraRig({ view, controls }: { view: View; controls: React.RefObject<OrbitControlsImpl | null> }) {
   const { camera } = useThree()
   const goal = useRef<View | null>(null)
+  const sph = useMemo(() => new THREE.Spherical(), [])
+  const off = useMemo(() => new THREE.Vector3(), [])
 
-  useEffect(() => { goal.current = { target: view.target.clone(), zoom: view.zoom } }, [view])
+  useEffect(() => { goal.current = { ...view, target: view.target.clone() } }, [view])
 
   useFrame((_, delta) => {
     const c = controls.current
-    if (!goal.current || !c) return
+    const g = goal.current
+    if (!g || !c) return
     const ortho = camera as THREE.OrthographicCamera
     // Time-based easing: the same glide at 30, 60 or 120 fps, and no stall on slow devices.
-    const k = 1 - Math.exp(-Math.min(delta, 0.5) * 7)
-    const shift = goal.current.target.clone().sub(c.target).multiplyScalar(k)
+    const k = 1 - Math.exp(-Math.min(delta, 0.5) * 6)
+    const shift = g.target.clone().sub(c.target).multiplyScalar(k)
     c.target.add(shift)
     camera.position.add(shift)
-    ortho.zoom += (goal.current.zoom - ortho.zoom) * k
+    ortho.zoom += (g.zoom - ortho.zoom) * k
+    let angleLeft = 0
+    if (g.theta !== undefined || g.phi !== undefined) {
+      off.copy(camera.position).sub(c.target)
+      sph.setFromVector3(off)
+      if (g.theta !== undefined) {
+        let d = g.theta - sph.theta
+        d = Math.atan2(Math.sin(d), Math.cos(d)) // shortest way round
+        sph.theta += d * k
+        angleLeft = Math.max(angleLeft, Math.abs(d))
+      }
+      if (g.phi !== undefined) {
+        const d = g.phi - sph.phi
+        sph.phi += d * k
+        angleLeft = Math.max(angleLeft, Math.abs(d))
+      }
+      camera.position.copy(c.target).add(off.setFromSpherical(sph))
+    }
     ortho.updateProjectionMatrix()
     c.update()
-    if (shift.length() < 0.01 && Math.abs(goal.current.zoom - ortho.zoom) < 0.01) goal.current = null
+    if (shift.length() < 0.01 && Math.abs(g.zoom - ortho.zoom) < 0.01 && angleLeft < 0.002) goal.current = null
   })
   return null
 }
@@ -319,7 +556,7 @@ export default function CasinoExplorer({ onClose }: { onClose: () => void }) {
   const controls = useRef<OrbitControlsImpl | null>(null)
   const labelNodes = useRef<(HTMLDivElement | null)[]>([])
   const tipNode = useRef<HTMLDivElement | null>(null)
-  const [view, setView] = useState<View>({ target: ORIGIN_TARGET.clone(), zoom: 6 })
+  const [view, setView] = useState<View>({ target: ORIGIN_TARGET.clone(), zoom: 3 })
 
   // The validated Q1 scoring for the full Jan–Jun period, as on the Q1 page.
   const perf = useMemo(() => (q1.data ? scoreMachines(q1.data, MONTHS, FULL_PERIOD_DAYS) : []), [q1.data])
@@ -370,8 +607,7 @@ export default function CasinoExplorer({ onClose }: { onClose: () => void }) {
   const resetView = useCallback(() => {
     setFocusZone(null)
     const zoom = fit(0, 135, -4, 112)
-    controls.current?.reset()
-    setView({ target: ORIGIN_TARGET.clone(), zoom })
+    setView({ target: ORIGIN_TARGET.clone(), zoom, theta: ISO_THETA, phi: ISO_PHI })
   }, [fit])
 
   // Fit the whole floor once the viewport is measured.
@@ -379,8 +615,21 @@ export default function CasinoExplorer({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     if (fitted.current || viewport.w === 1200) return
     fitted.current = true
-    setView({ target: ORIGIN_TARGET.clone(), zoom: fit(0, 135, -4, 112) })
+    // Intro: glide from a wide, rotated angle into the isometric overview.
+    setView({ target: ORIGIN_TARGET.clone(), zoom: fit(0, 135, -4, 112), theta: ISO_THETA, phi: ISO_PHI })
   }, [viewport, fit])
+
+  // On-screen camera controls: zoom, rotate 45°, top-down / isometric tilt.
+  const current = () => {
+    const c = controls.current
+    if (!c) return null
+    const off = c.object.position.clone().sub(c.target)
+    return { target: c.target.clone(), zoom: (c.object as THREE.OrthographicCamera).zoom, sph: new THREE.Spherical().setFromVector3(off) }
+  }
+  const zoomBy = (f: number) => { const c = current(); if (c) setView({ target: c.target, zoom: Math.min(MACHINE_MAX_ZOOM, Math.max(2, c.zoom * f)) }) }
+  const rotateBy = (d: number) => { const c = current(); if (c) setView({ target: c.target, zoom: c.zoom, theta: c.sph.theta + d }) }
+  const [topDown, setTopDown] = useState(false)
+  const toggleTilt = () => { const c = current(); if (!c) return; setTopDown((t) => !t); setView({ target: c.target, zoom: c.zoom, phi: topDown ? ISO_PHI : TOP_PHI }) }
 
   const focus = (zoneId: string | null) => {
     if (!zoneId || !floorData.data) return resetView()
@@ -434,7 +683,7 @@ export default function CasinoExplorer({ onClose }: { onClose: () => void }) {
             ))}
           </div>
           <label className="x3d-check"><input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} /> Labels</label>
-          <button className="btn sm" onClick={resetView}>Reset view</button>
+          <button className="btn sm" onClick={() => { setTopDown(false); resetView() }}>Reset view</button>
           <button className="btn sm gold" onClick={onClose} aria-label="Close 3D explorer">Close ✕</button>
         </div>
       </header>
@@ -445,17 +694,18 @@ export default function CasinoExplorer({ onClose }: { onClose: () => void }) {
         if (Math.round(r.width) !== viewport.w || Math.round(r.height) !== viewport.h) setViewport({ w: Math.round(r.width), h: Math.round(r.height) })
       }}>
         {error && <div className="x3d-center">Couldn't load floor data: {error}</div>}
-        {!error && (!floor || !machines.length) && <div className="x3d-center">Loading the floor…</div>}
+        {!error && (!floor || !machines.length) && <div className="x3d-center"><div className="x3d-loading"><span className="x3d-spinner" aria-hidden="true" />Loading the floor…</div></div>}
         {floor && machines.length > 0 && (
-          <Canvas dpr={[1, 2]} gl={{ antialias: true }} onPointerMissed={() => setSelected(null)}>
+          <Canvas dpr={[1, 1.75]} shadows="soft" gl={{ antialias: true, powerPreference: 'high-performance' }} onPointerMissed={() => setSelected(null)}>
             <color attach="background" args={['#080c16']} />
-            <OrthographicCamera makeDefault position={[67 + 90, 90, 54 + 90]} zoom={view.zoom} near={-500} far={1000} />
-            <OrbitControls ref={controls} target={ORIGIN_TARGET} enableDamping dampingFactor={0.12} maxPolarAngle={Math.PI / 2.3} minZoom={2} maxZoom={MACHINE_MAX_ZOOM} />
+            <OrthographicCamera makeDefault position={[67 + 40, 110, 54 + 150]} zoom={view.zoom} near={-500} far={1000} />
+            <OrbitControls ref={controls} target={ORIGIN_TARGET} enableDamping dampingFactor={0.1} rotateSpeed={0.6} zoomSpeed={0.9} panSpeed={0.9}
+              zoomToCursor screenSpacePanning minPolarAngle={0.02} maxPolarAngle={Math.PI / 2.35} minZoom={2} maxZoom={MACHINE_MAX_ZOOM} />
             <CameraRig view={view} controls={controls} />
-            <hemisphereLight args={['#c9d4e8', '#0b0e14', 0.75]} />
-            <directionalLight position={[60, 120, 40]} intensity={1.1} />
+            <Lights />
             <FloorScene floor={floor} focusZone={focusZone} />
             <BottomTenGlow machines={machines} />
+            <SelectionMarker machine={selected !== null ? machines[selected] ?? null : null} />
             <Machines machines={machines} colors={colors} hovered={hovered} selected={selected} onHover={setHovered} onSelect={(i) => setSelected(i)} />
             <Projector anchors={anchors} nodes={labelNodes} tipNode={tipNode}
               tipAnchor={hoveredMachine ? new THREE.Vector3(hoveredMachine.x, 2.4, hoveredMachine.z) : null} />
@@ -482,8 +732,21 @@ export default function CasinoExplorer({ onClose }: { onClose: () => void }) {
             <span className="x3d-ramp">Low <i /> High {colorMode === 'theo' ? 'theo per available hour' : 'occupancy'} (Jan–Jun)</span>
           )}
           <span><i className="x3d-red" />Q1 bottom-10 candidate</span>
-          <span className="muted">Drag to rotate · scroll to zoom · right-drag to pan · facing direction is illustrative</span>
+          <span className="muted">Drag to rotate · scroll to zoom toward the cursor · right-drag to pan · facing direction is illustrative</span>
         </div>
+
+        {floor && machines.length > 0 && (
+          <div className={`x3d-nav ${selectedMachine ? 'with-panel' : ''}`} role="toolbar" aria-label="Camera">
+            <button onClick={() => zoomBy(1.35)} aria-label="Zoom in" title="Zoom in">+</button>
+            <button onClick={() => zoomBy(1 / 1.35)} aria-label="Zoom out" title="Zoom out">−</button>
+            <span className="x3d-nav-sep" />
+            <button onClick={() => rotateBy(Math.PI / 4)} aria-label="Rotate left" title="Rotate 45° left">⟲</button>
+            <button onClick={() => rotateBy(-Math.PI / 4)} aria-label="Rotate right" title="Rotate 45° right">⟳</button>
+            <button onClick={toggleTilt} aria-pressed={topDown} aria-label={topDown ? 'Isometric view' : 'Top-down view'} title={topDown ? 'Isometric view' : 'Top-down view'}>{topDown ? '◇' : '▢'}</button>
+            <span className="x3d-nav-sep" />
+            <button onClick={() => { setTopDown(false); resetView() }} aria-label="Reset view" title="Reset view">⌂</button>
+          </div>
+        )}
 
         <aside className="x3d-list">
           <div className="x3d-list-title">Q1 bottom 10 <span className="muted small">casino-wide, Jan–Jun</span></div>
