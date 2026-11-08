@@ -197,9 +197,9 @@ const FloorScene = memo(function FloorScene({ floor, focusZone }: { floor: Floor
     <group>
       <mesh rotation-x={-Math.PI / 2} position={[67, -0.01, 54]} receiveShadow>
         <planeGeometry args={[160, 140]} />
-        <meshStandardMaterial color="#0f131b" roughness={1} />
+        <meshStandardMaterial color="#0d1322" roughness={1} />
       </mesh>
-      <gridHelper args={[160, 32, '#1d2330', '#161b25']} position={[67, 0, 54]} />
+      <gridHelper args={[160, 32, '#1c2436', '#141b2a']} position={[67, 0, 54]} />
 
       {floor.zones.map((z) => {
         const b = bounds.get(z.zone_id)
@@ -448,7 +448,7 @@ export default function CasinoExplorer({ onClose }: { onClose: () => void }) {
         {!error && (!floor || !machines.length) && <div className="x3d-center">Loading the floor…</div>}
         {floor && machines.length > 0 && (
           <Canvas dpr={[1, 2]} gl={{ antialias: true }} onPointerMissed={() => setSelected(null)}>
-            <color attach="background" args={['#0b0e14']} />
+            <color attach="background" args={['#080c16']} />
             <OrthographicCamera makeDefault position={[67 + 90, 90, 54 + 90]} zoom={view.zoom} near={-500} far={1000} />
             <OrbitControls ref={controls} target={ORIGIN_TARGET} enableDamping dampingFactor={0.12} maxPolarAngle={Math.PI / 2.3} minZoom={2} maxZoom={MACHINE_MAX_ZOOM} />
             <CameraRig view={view} controls={controls} />

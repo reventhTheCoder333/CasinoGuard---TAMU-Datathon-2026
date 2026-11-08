@@ -75,11 +75,11 @@ export default function Recommendations() {
       <Panel className="mt" title="Budget allocation" sub={`${usd(invested, 0)} invested across ${types.size} action types · ${usd(preserved, 0)} preserved`} source={{ tables: ['2_machine_decision/action_catalog'] }}>
         <div className="budget-bar" role="img" aria-label={`Budget allocation: ${r.selected.map((a) => `${a.action_type_id} ${usd(a.total_cost, 0)}`).join(', ')}, preserved ${usd(preserved, 0)}`}>
           {r.selected.map((a, i) => <div key={a.action_type_id} style={{ width: `${(a.total_cost / r.budget) * 100}%`, background: COLORS[i] }} title={`${a.name}: ${usd(a.total_cost, 0)}`} />)}
-          <div style={{ flex: 1, background: '#2a303c' }} title={`Preserved: ${usd(preserved, 0)}`} />
+          <div style={{ flex: 1, background: 'rgba(255,255,255,0.08)' }} title={`Preserved: ${usd(preserved, 0)}`} />
         </div>
         <div className="legend mt-s">
           {r.selected.map((a, i) => <span className="lg" key={a.action_type_id}><span className="sw" style={{ background: COLORS[i] }} />{a.action_type_id} · {usd(a.total_cost, 0)}</span>)}
-          <span className="lg"><span className="sw" style={{ background: '#2a303c', border: '1px solid #3a4250' }} />A-HOLD (preserved) · {usd(preserved, 0)}</span>
+          <span className="lg"><span className="sw" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)' }} />A-HOLD (preserved) · {usd(preserved, 0)}</span>
         </div>
 
         <div className="table-wrap mt">
