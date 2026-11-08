@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis, Bar } from 'recharts'
 import { useData } from '../lib/data'
 import { usePeriod } from '../lib/period'
+import { useFilters } from '../lib/filters'
 import type { Q1Data } from '../lib/types'
 import { scoreMachines, minDaysFor, type MachinePerf } from '../lib/q1'
 import { dLabel, num, pct, usd, usdShort } from '../lib/format'
@@ -15,7 +16,8 @@ const ZONE_NAMES: Record<string, string> = {}
 export default function Q1() {
   const p = usePeriod()
   const { data, error } = useData<Q1Data>('q1')
-  const [zone, setZone] = useState('')
+  // Zone and theme are the global filters, so they carry across pages and cross-filter the Explorer.
+  const { zone, setZone, theme, setTheme } = useFilters()
   const [cfg, setCfg] = useState('')
   const [mfr, setMfr] = useState('')
   const [scope, setScope] = useState<'eligible' | 'all'>('eligible')
@@ -28,8 +30,8 @@ export default function Q1() {
   const ranked = useMemo(() => perf.filter((m) => m.rank !== null).sort((a, b) => a.rank! - b.rank!), [perf])
   const candidates = useMemo(() => new Set(ranked.slice(0, topN).map((m) => m.machine_id)), [ranked, topN])
   const visible = useMemo(() => perf.filter((m) =>
-    (!zone || m.period_zone === zone) && (!cfg || m.config_id === cfg) && (!mfr || m.manufacturer === mfr) && (scope === 'all' || m.eligible),
-  ), [perf, zone, cfg, mfr, scope])
+    (!zone || m.period_zone === zone) && (!theme || m.theme === theme) && (!cfg || m.config_id === cfg) && (!mfr || m.manufacturer === mfr) && (scope === 'all' || m.eligible),
+  ), [perf, zone, theme, cfg, mfr, scope])
 
   if (!data) return <Loading error={error} />
 
@@ -41,7 +43,7 @@ export default function Q1() {
   const overlap = top10.filter((id) => naiveIds.has(id)).length
   const aboveTheo = ranked.slice(0, topN).filter((m) => m.luck > 0).length
   const selected = sel ? perf.find((m) => m.machine_id === sel) ?? null : null
-  const filtersOn = zone || cfg || mfr || scope !== 'eligible'
+  const filtersOn = zone || theme || cfg || mfr || scope !== 'eligible'
 
   const zones = [...new Set(data.machines.map((m) => m.zone_id).filter(Boolean))].sort()
   const cfgs = [...new Set(data.machines.map((m) => m.config_id))].sort()
@@ -100,11 +102,12 @@ export default function Q1() {
 
       <div className="filters mt">
         <Select label="Zone" value={zone} onChange={setZone} allLabel="All zones" options={zones.map((z) => ({ value: z, label: ZONE_NAMES[z] }))} />
+        <Select label="Theme" value={theme} onChange={setTheme} allLabel="All themes" options={[...new Set(data.machines.map((m) => m.theme))].sort().map((t) => ({ value: t, label: t }))} />
         <Select label="Configuration" value={cfg} onChange={setCfg} allLabel="All configs" options={cfgs.map((c) => ({ value: c, label: c }))} />
         <Select label="Manufacturer" value={mfr} onChange={setMfr} allLabel="All" options={mfrs.map((c) => ({ value: c, label: c }))} />
         <Select label="Show" value={scope} onChange={(v) => setScope(v as 'eligible' | 'all')} options={[{ value: 'eligible', label: 'Eligible only' }, { value: 'all', label: 'All machines' }]} />
         <Select label="Candidates" value={String(topN)} onChange={(v) => setTopN(Number(v))} options={[10, 20, 30].map((n) => ({ value: String(n), label: `Top ${n}` }))} />
-        {filtersOn && <button className="btn sm" onClick={() => { setZone(''); setCfg(''); setMfr(''); setScope('eligible') }}>Reset filters</button>}
+        {filtersOn && <button className="btn sm" onClick={() => { setZone(''); setTheme(''); setCfg(''); setMfr(''); setScope('eligible') }}>Reset filters</button>}
       </div>
 
       <div className="grid g-21">

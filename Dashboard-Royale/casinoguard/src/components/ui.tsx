@@ -1,5 +1,9 @@
-import { useId, useState, type ReactNode } from 'react'
+import { createContext, useContext, useId, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+
+/** Set by InsightProvider so primitives can open explanations without a hard dependency. */
+// eslint-disable-next-line react-refresh/only-export-components
+export const InsightCtxRef = createContext<{ explain: (metricId: string) => void } | null>(null)
 
 /* ---------------- Info tooltip ---------------- */
 export function InfoTip({ children, label = 'More information' }: { children: ReactNode; label?: string }) {
@@ -76,18 +80,34 @@ export function Panel({
 
 /* ---------------- KPI ---------------- */
 export function Kpi({
-  label, value, sub, tip, verified, to, tone,
-}: { label: ReactNode; value: ReactNode; sub?: ReactNode; tip?: ReactNode; verified?: boolean; to?: string; tone?: 'pos' | 'neg' }) {
+  label, value, sub, tip, verified, to, tone, metric, onOpen, active,
+}: {
+  label: ReactNode; value: ReactNode; sub?: ReactNode; tip?: ReactNode; verified?: boolean; to?: string; tone?: 'pos' | 'neg'
+  /** Metric registry id: adds a formula button that opens its explanation. */
+  metric?: string
+  /** Opens an investigation panel; takes precedence over `to`. */
+  onOpen?: () => void
+  active?: boolean
+}) {
   const nav = useNavigate()
+  const insight = useContext(InsightCtxRef)
+  const go = onOpen ?? (to ? () => nav(to) : undefined)
   return (
     <div
-      className={`kpi ${to ? 'link' : ''}`}
-      onClick={to ? () => nav(to) : undefined}
-      role={to ? 'link' : undefined}
-      tabIndex={to ? 0 : undefined}
-      onKeyDown={to ? (e) => { if (e.key === 'Enter') nav(to) } : undefined}
+      className={`kpi ${go ? 'link' : ''} ${active ? 'active' : ''}`}
+      onClick={go}
+      role={go ? 'button' : undefined}
+      tabIndex={go ? 0 : undefined}
+      onKeyDown={go ? (e) => { if (e.key === 'Enter' && e.target === e.currentTarget) go() } : undefined}
     >
-      <div className="kpi-label">{label}{tip && <InfoTip>{tip}</InfoTip>}</div>
+      <div className="kpi-label">
+        {label}
+        {tip && <InfoTip>{tip}</InfoTip>}
+        {metric && insight && (
+          <button type="button" className="formula-btn" aria-label="How this is calculated" title="Formula and source"
+            onClick={(e) => { e.stopPropagation(); insight.explain(metric) }}>ƒ</button>
+        )}
+      </div>
       <div className={`kpi-value ${tone ?? ''}`}>{value}</div>
       <div className="kpi-sub">
         {sub}

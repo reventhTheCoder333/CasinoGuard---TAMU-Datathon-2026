@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useData } from '../lib/data'
 import { usePeriod } from '../lib/period'
-import type { Q2Data, Q3Data, Ticket } from '../lib/types'
+import { useFilters } from '../lib/filters'
+import type { Q2Data, Q3Data, Ticket, Q1Data } from '../lib/types'
 import { hours, mLabel, num, pct, sum, usd } from '../lib/format'
 import { Callout, Kpi, Loading, PageHead, Panel, Seg, Select } from '../components/ui'
 import { DataTable, type Column } from '../components/DataTable'
@@ -20,15 +21,18 @@ export default function Q3() {
   const q2 = useData<Q2Data>('q2')
   const [type, setType] = useState('')
   const [mfr, setMfr] = useState('')
-  const [zone, setZone] = useState('')
+  // Zone and theme are the global filters; a ticket's theme is its machine's theme (q1.json machines).
+  const { zone, setZone, theme, setTheme } = useFilters()
+  const q1 = useData<Q1Data>('q1')
+  const themeOf = useMemo(() => new Map((q1.data?.machines ?? []).map((m) => [m.machine_id, m.theme])), [q1.data])
   const [machine, setMachine] = useState('')
   const [sel, setSel] = useState<string | null>(null)
   const [hourMetric, setHourMetric] = useState<'downtime' | 'count' | 'exposure'>('downtime')
 
   const tickets = useMemo(() => (data?.tickets ?? []).filter((t) =>
-    p.inRange(t.gaming_date) && (!type || t.event_type === type) && (!mfr || t.manufacturer === mfr) && (!zone || t.zone_id === zone) &&
+    p.inRange(t.gaming_date) && (!type || t.event_type === type) && (!mfr || t.manufacturer === mfr) && (!zone || t.zone_id === zone) && (!theme || themeOf.get(t.machine_id) === theme) &&
     (!machine || t.machine_id.toLowerCase().includes(machine.toLowerCase().trim())),
-  ), [data, p, type, mfr, zone, machine])
+  ), [data, p, type, mfr, zone, theme, themeOf, machine])
 
   const machines = useMemo<MachineAgg[]>(() => {
     const m = new Map<string, Ticket[]>()
@@ -42,12 +46,12 @@ export default function Q3() {
     }))
   }, [tickets])
 
-  if (!data || !q2.data) return <Loading error={error || q2.error} />
+  if (!data || !q2.data || (theme && !q1.data)) return <Loading error={error || q2.error || q1.error} />
   const zn = Object.fromEntries(q2.data.zones.map((z) => [z.zone_id, z.zone_name]))
   const faults = tickets.filter((t) => t.event_type === 'fault_repair')
   const downtime = sum(tickets, (t) => t.downtime_hours)
   const exposure = sum(faults, (t) => t.est_exposure)
-  const filtersOn = type || mfr || zone || machine
+  const filtersOn = type || mfr || zone || theme || machine
   const unfiltered = !filtersOn && p.isFull
 
   const byMonth = p.months.map((mo) => {
@@ -112,14 +116,15 @@ export default function Q3() {
         <Select label="Category" value={type} onChange={setType} allLabel="All tickets" options={Object.keys(data.summary.by_type as Record<string, number>).map((k) => ({ value: k, label: `${TYPE_LABEL[k] ?? k} (${(data.summary.by_type as Record<string, number>)[k]})` }))} />
         <Select label="Manufacturer" value={mfr} onChange={setMfr} allLabel="All" options={mfrs.map((m) => ({ value: m, label: m }))} />
         <Select label="Zone" value={zone} onChange={setZone} allLabel="All zones" options={q2.data.zones.map((z) => ({ value: z.zone_id, label: z.zone_name }))} />
+        <Select label="Theme" value={theme} onChange={setTheme} allLabel="All themes" options={[...new Set(q2.data.theme_month.map((t) => t.theme))].sort().map((t) => ({ value: t, label: t }))} />
         <label className="ctrl">Machine<input type="search" placeholder="e.g. M-1065" value={machine} onChange={(e) => setMachine(e.target.value)} style={{ width: 120 }} /></label>
-        {filtersOn && <button className="btn sm" onClick={() => { setType(''); setMfr(''); setZone(''); setMachine('') }}>Reset filters</button>}
+        {filtersOn && <button className="btn sm" onClick={() => { setType(''); setMfr(''); setZone(''); setTheme(''); setMachine('') }}>Reset filters</button>}
         <span className="small muted">Dates follow the global analysis period ({p.label}).</span>
       </div>
 
       <div className="kpis">
-        <Kpi label="Tickets" value={num(tickets.length)} sub={`${num(faults.length)} fault repairs`} verified={unfiltered} tip="Rows in operations within the filters (gaming date of opened_at)." />
-        <Kpi label="Total downtime" value={hours(downtime)} verified={unfiltered} tip="Σ (available_at_utc − opened_at_utc)." />
+        <Kpi label="Tickets" metric="tickets" value={num(tickets.length)} sub={`${num(faults.length)} fault repairs`} verified={unfiltered} tip="Rows in operations within the filters (gaming date of opened_at)." />
+        <Kpi label="Total downtime" metric="downtime" value={hours(downtime)} verified={unfiltered} tip="Σ (available_at_utc − opened_at_utc)." />
         <Kpi label="Avg downtime / ticket" value={hours(downtime / (tickets.length || 1))} verified={unfiltered} tip="Mean of per-ticket downtime." />
         <Kpi label="Avg response time" value={hours(sum(tickets, (t) => t.response_hours) / (tickets.length || 1))} verified={unfiltered} tip="Mean of (work_started_at − opened_at). Response is a minority of downtime; most is repair time." />
         <Kpi label="Est. lost-play exposure" value={usd(exposure)} sub="fault repairs · estimate" tip="Σ fault downtime × machine theo/available hour. An estimate of expected house win foregone, not actual revenue." />

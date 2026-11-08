@@ -4,9 +4,11 @@ import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis
 import { useData } from '../lib/data'
 import { usePeriod } from '../lib/period'
 import type { Meta, Overview as OV, Q2Data, Q3Data, Q4Data, Q5Data, RecsData } from '../lib/types'
-import { dLabel, hours, num, pct, pctv, sum, usd, usdShort } from '../lib/format'
+import { dLabel, hours, mLabel, num, pct, pctv, sum, usd, usdShort } from '../lib/format'
 import { Callout, Kpi, Legend, Loading, Meter, PageHead, Panel } from '../components/ui'
 import { axisProps, ChartTip, GOLD, gridProps, SERIES } from '../components/chart'
+import { useInsight } from '../components/Insight'
+import { metricDef } from '../lib/metrics'
 
 export default function Overview() {
   const p = usePeriod()
@@ -17,6 +19,7 @@ export default function Overview() {
   const q4 = useData<Q4Data>('q4')
   const q5 = useData<Q5Data>('q5')
   const recs = useData<RecsData>('recommendations')
+  const insight = useInsight()
 
   const daily = useMemo(() => {
     if (!ov.data) return []
@@ -60,6 +63,29 @@ export default function Overview() {
 
   const events = q2.data.events.filter((e) => e.end_date >= p.start && e.start_date <= p.end)
 
+  const q4m = q4.data.monthly
+  // KPI investigation: the same source rows, broken down by month of the selected period.
+  const monthly: Record<string, (mo: string) => number> = {
+    tracked_net: (mo) => sum(q4m.filter((x) => x.period_month === mo), (x) => x.casino_net),
+    tracked_wager: (mo) => sum(q4m.filter((x) => x.period_month === mo), (x) => x.wager),
+    tracked_payout: (mo) => sum(q4m.filter((x) => x.period_month === mo), (x) => x.payout),
+    tickets: (mo) => tk.filter((t) => t.gaming_date?.startsWith(mo)).length,
+    downtime: (mo) => sum(tk.filter((t) => t.gaming_date?.startsWith(mo)), (t) => t.downtime_hours),
+    comp_cost: (mo) => sum(q5m.filter((m) => m.month === mo), (m) => m.comp_cost),
+    comp_face: (mo) => sum(q5m.filter((m) => m.month === mo), (m) => m.face),
+  }
+  const openKpi = (id: string, value: string, to: string, page: string) => {
+    const m = metricDef(id)
+    const points = p.months.map((mo) => ({ label: mLabel(mo), value: monthly[id](mo) }))
+    const best = [...points].sort((a, b) => b.value - a.value)[0]
+    insight.open({
+      eyebrow: 'KPI investigation', title: m.label, subtitle: p.label, metricId: id,
+      kpis: [{ label: `Total · ${p.label}`, value }, { label: 'Highest month', value: best ? `${best.label} · ${m.fmt(best.value)}` : '—' }],
+      series: { title: `${m.label} by month`, points, fmt: m.fmt, axis: (v) => (id === 'tickets' ? num(v) : id === 'downtime' ? `${num(v)} h` : usdShort(v, 0)) },
+      actions: [{ label: `Open ${page} →`, to, primary: true }],
+    })
+  }
+
   return (
     <div>
       <PageHead
@@ -69,19 +95,19 @@ export default function Overview() {
       />
 
       <div className="kpis">
-        <Kpi label="Tracked casino net" value={usd(r.casino_net)} verified={p.isFull} to="/q4"
+        <Kpi label="Tracked casino net" value={usd(r.casino_net)} verified={p.isFull} metric="tracked_net" onOpen={() => openKpi('tracked_net', usd(r.casino_net), '/q4', 'Q4')}
           tip={<><b>Definition:</b> tracked coin-in − tracked payouts for loyalty-card (carded) play only.<br /><b>Source:</b> player_period.tracked_coin_in_usd − tracked_payout_usd. Excludes uncarded play.</>} />
-        <Kpi label="Tracked wagering" value={usd(r.wager)} verified={p.isFull} to="/q4"
+        <Kpi label="Tracked wagering" value={usd(r.wager)} verified={p.isFull} metric="tracked_wager" onOpen={() => openKpi('tracked_wager', usd(r.wager), '/q4', 'Q4')}
           tip={<><b>Definition:</b> total amount wagered (coin-in, incl. re-bet winnings) by carded players.<br /><b>Source:</b> SUM(player_period.tracked_coin_in_usd).</>} />
-        <Kpi label="Tracked payouts" value={usd(r.payout)} verified={p.isFull} to="/q4"
+        <Kpi label="Tracked payouts" value={usd(r.payout)} verified={p.isFull} metric="tracked_payout" onOpen={() => openKpi('tracked_payout', usd(r.payout), '/q4', 'Q4')}
           tip={<><b>Definition:</b> total paid back by games to carded players.<br /><b>Source:</b> SUM(player_period.tracked_payout_usd).</>} />
-        <Kpi label="Operations tickets" value={num(tk.length)} sub={`${num(tk.filter((t) => t.event_type === 'fault_repair').length)} fault repairs`} verified={p.isFull} to="/q3"
+        <Kpi label="Operations tickets" value={num(tk.length)} sub={`${num(tk.filter((t) => t.event_type === 'fault_repair').length)} fault repairs`} verified={p.isFull} metric="tickets" onOpen={() => openKpi('tickets', num(tk.length), '/q3', 'Q3')}
           tip={<><b>Definition:</b> every ticket in operations (fault repairs, installs, moves, scheduled maintenance, retirements), by gaming date opened.<br /><b>Source:</b> operations (row count). Note: 1,207 of the 1,226 are fault repairs.</>} />
-        <Kpi label="Total downtime" value={hours(downtime)} verified={p.isFull} to="/q3"
+        <Kpi label="Total downtime" value={hours(downtime)} verified={p.isFull} metric="downtime" onOpen={() => openKpi('downtime', hours(downtime), '/q3', 'Q3')}
           tip={<><b>Definition:</b> Σ (available_at_utc − opened_at_utc) over all tickets.<br /><b>Source:</b> operations. UTC timestamps avoid DST errors.</>} />
-        <Kpi label="Actual comp cost" value={usd(compCost)} verified={p.isFull} to="/q5"
+        <Kpi label="Actual comp cost" value={usd(compCost)} verified={p.isFull} metric="comp_cost" onOpen={() => openKpi('comp_cost', usd(compCost), '/q5', 'Q5')}
           tip={<><b>Definition:</b> economic (cost-of-goods) cost of comps redeemed — what the casino actually spends.<br /><b>Source:</b> SUM(player_period.comp_cost_usd); reconciles to property_day and loyalty_ledger.</>} />
-        <Kpi label="Comp face value" value={usd(compFace)} verified={p.isFull} to="/q5"
+        <Kpi label="Comp face value" value={usd(compFace)} verified={p.isFull} metric="comp_face" onOpen={() => openKpi('comp_face', usd(compFace), '/q5', 'Q5')}
           tip={<><b>Definition:</b> menu (retail) value of comps redeemed. Not a cash cost.<br /><b>Source:</b> SUM(player_period.comp_face_value_usd).</>} />
       </div>
 

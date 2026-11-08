@@ -12,12 +12,17 @@ import Recommendations from './pages/Recommendations'
 import Methodology from './pages/Methodology'
 import Model from './pages/Model'
 import { AssistantChat } from './components/AssistantChat'
+import { FilterBar } from './components/FilterBar'
+import { InsightProvider } from './components/Insight'
+import { FilterProvider } from './lib/filters'
+import Explorer from './pages/Explorer'
 
 // Three.js is only downloaded when the explorer is opened.
 const CasinoExplorer = lazy(() => import('./explorer/CasinoExplorer'))
 
 export const NAV = [
   { to: '/', key: '◆', label: 'Overview', group: 'Executive' },
+  { to: '/explore', key: '⌕', label: 'Interactive Explorer', group: 'Executive' },
   { to: '/q1', key: 'Q1', label: 'Machine Performance', group: 'Analyses' },
   { to: '/q2', key: 'Q2', label: 'Floor Demand', group: 'Analyses' },
   { to: '/q3', key: 'Q3', label: 'Maintenance Intelligence', group: 'Analyses' },
@@ -118,9 +123,11 @@ function Shell() {
           <span className="spacer" />
           <PeriodPicker />
         </header>
+        <FilterBar />
         <main className="content">
           <Routes>
             <Route path="/" element={<Overview />} />
+            <Route path="/explore" element={<Explorer />} />
             <Route path="/q1" element={<Q1 />} />
             <Route path="/q2" element={<Q2 />} />
             <Route path="/q3" element={<Q3 />} />
@@ -148,7 +155,11 @@ export default function App() {
   return (
     <HashRouter>
       <PeriodProvider>
-        <Shell />
+        <FilterProvider>
+          <InsightProvider>
+            <Shell />
+          </InsightProvider>
+        </FilterProvider>
       </PeriodProvider>
     </HashRouter>
   )

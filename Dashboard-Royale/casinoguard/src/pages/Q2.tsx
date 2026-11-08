@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useData } from '../lib/data'
 import { usePeriod } from '../lib/period'
+import { useFilters } from '../lib/filters'
 import type { Q2Data, ZoneMonth } from '../lib/types'
 import { dLabel, mLabel, num, pct, signedPct, usd, usdShort } from '../lib/format'
 import { Callout, Legend, Loading, PageHead, Panel, Seg, Select } from '../components/ui'
@@ -25,15 +26,26 @@ function metric(z: Pick<ZoneMonth, 'coin_in' | 'days' | 'occupied_hours' | 'avai
     case 'daily_theo': return z.theo / z.days
   }
 }
+// Global metric ids that have a Q2 equivalent, and back.
+const FROM_GLOBAL: Record<string, MetricKey> = { coin_in: 'daily_coin', occupancy: 'occupancy', coin_per_hour: 'cph', theo: 'daily_theo' }
+const TO_GLOBAL: Partial<Record<MetricKey, string>> = { daily_coin: 'coin_in', occupancy: 'occupancy', cph: 'coin_per_hour', daily_theo: 'theo' }
+const DEFAULT_ZONE = 'Z-B40'
 const chg = (a: number | null, b: number | null) => (a && b !== null ? (b / a - 1) * 100 : null)
 
 export default function Q2() {
   const p = usePeriod()
   const { data, error } = useData<Q2Data>('q2')
-  const [m, setM] = useState<MetricKey>('daily_coin')
-  const [zone, setZone] = useState('Z-B40')
+  // Zone, theme and metric follow the global filters so this page cross-filters with the others.
+  const f = useFilters()
+  const [override, setOverride] = useState<MetricKey | null>(null)
+  useEffect(() => { setOverride(null) }, [f.metric])
+  const m: MetricKey = override ?? FROM_GLOBAL[f.metric] ?? 'daily_coin'
+  const setM = (k: MetricKey) => { const g = TO_GLOBAL[k]; if (g) { f.setMetric(g); setOverride(null) } else setOverride(k) }
+  const zone = f.zone || DEFAULT_ZONE
+  const setZone = f.setZone
   const [hidden, setHidden] = useState<Set<string>>(new Set())
-  const [theme, setTheme] = useState('')
+  const theme = f.theme
+  const setTheme = f.setTheme
 
   const zn = useMemo(() => Object.fromEntries((data?.zones ?? []).map((z) => [z.zone_id, z.zone_name])), [data])
 
@@ -140,7 +152,7 @@ export default function Q2() {
         <Seg value={m} onChange={setM} label="Metric" options={(Object.keys(METRICS) as MetricKey[]).map((k) => ({ value: k, label: METRICS[k].label }))} />
         <Select label="Drill into zone" value={zone} onChange={setZone} options={data.zones.map((z) => ({ value: z.zone_id, label: z.zone_name }))} />
         <Select label="Theme" value={theme} onChange={setTheme} allLabel="All themes" options={themes.map((t) => ({ value: t, label: t }))} />
-        {(hidden.size > 0 || theme || zone !== 'Z-B40' || m !== 'daily_coin') && <button className="btn sm" onClick={() => { setHidden(new Set()); setTheme(''); setZone('Z-B40'); setM('daily_coin') }}>Reset filters</button>}
+        {(hidden.size > 0 || theme || f.zone || m !== 'daily_coin') && <button className="btn sm" onClick={() => { setHidden(new Set()); setTheme(''); setZone(''); setM('daily_coin') }}>Reset filters</button>}
       </div>
 
       <div className="grid g-21">
@@ -264,7 +276,7 @@ export default function Q2() {
                   <YAxis {...axisProps} tickFormatter={(v) => `${v}%`} width={44} />
                   <ReferenceLine y={0} stroke="#3a4250" />
                   <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)' }} content={<ChartTip fmt={(v) => signedPct(v, 1)} />} />
-                  <Bar dataKey="chg" name="Δ coin-in / avail hr" radius={[4, 4, 4, 4]} isAnimationActive={false} onClick={(d) => setTheme((d as unknown as { theme: string }).theme)} cursor="pointer">
+                  <Bar dataKey="chg" name="Δ coin-in / avail hr" radius={[4, 4, 4, 4]} isAnimationActive={false} onClick={(d) => f.toggleTheme((d as unknown as { theme: string }).theme)} cursor="pointer">
                     {themeRows.filter((t) => t.chg !== null).map((t) => <Cell key={t.theme} fill={t.theme === theme ? GOLD : SERIES[0]} />)}
                   </Bar>
                 </BarChart>
