@@ -1,5 +1,5 @@
 import { HashRouter, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { MONTHS, PeriodProvider, usePeriod } from './lib/period'
 import { mLabel } from './lib/format'
 import Overview from './pages/Overview'
@@ -12,6 +12,9 @@ import Recommendations from './pages/Recommendations'
 import Methodology from './pages/Methodology'
 import Model from './pages/Model'
 import { AssistantChat } from './components/AssistantChat'
+
+// Three.js is only downloaded when the explorer is opened.
+const CasinoExplorer = lazy(() => import('./explorer/CasinoExplorer'))
 
 export const NAV = [
   { to: '/', key: '◆', label: 'Overview', group: 'Executive' },
@@ -62,6 +65,7 @@ function Shell() {
   const nav = useNavigate()
   const cur = NAV.find((n) => n.to === loc.pathname) ?? NAV[0]
   useEffect(() => { window.scrollTo(0, 0) }, [loc.pathname])
+  const [explorerOpen, setExplorerOpen] = useState(false)
   let lastGroup = ''
   return (
     <div className="app">
@@ -86,6 +90,9 @@ function Shell() {
             ]
           })}
         </nav>
+        <button className="btn" onClick={() => setExplorerOpen(true)} style={{ margin: '12px 16px 0', justifyContent: 'center' }}>
+          Explore in 3D
+        </button>
         <a
           className="btn gold"
           href={import.meta.env.VITE_AML_URL || 'http://localhost:5173'}
@@ -128,6 +135,11 @@ function Shell() {
         </main>
       </div>
       <AssistantChat />
+      {explorerOpen && (
+        <Suspense fallback={<div className="x3d"><div className="x3d-center">Loading the 3D explorer…</div></div>}>
+          <CasinoExplorer onClose={() => setExplorerOpen(false)} />
+        </Suspense>
+      )}
     </div>
   )
 }
