@@ -9,6 +9,7 @@ import { scoreMachines, minDaysFor, type MachinePerf } from '../lib/q1'
 import { dLabel, num, pct, usd, usdShort } from '../lib/format'
 import { Callout, Kpi, Legend, Loading, PageHead, Panel, Select } from '../components/ui'
 import { DataTable, type Column } from '../components/DataTable'
+import { Q1Diagnostics } from '../components/Q1Diagnostics'
 import { axisProps, ChartTip, GOLD, gridProps, SERIES } from '../components/chart'
 
 const ZONE_NAMES: Record<string, string> = {}
@@ -99,6 +100,8 @@ export default function Q1() {
         <Kpi label="Team verification" value={p.isFull ? (matchesTeam ? 'Match' : 'Mismatch') : 'n/a'} tone={p.isFull ? (matchesTeam ? 'pos' : 'neg') : undefined}
           sub={p.isFull ? 'Top 10 equals FINAL_BOTTOM_10_CANDIDATES.csv' : 'Verification applies to Jan–Jun'} tip="The client re-runs the team's finalize_bottom_10.py scoring; on the full period it must reproduce the verified list exactly." />
       </div>
+
+      <div className="mt"><Q1Diagnostics data={data} zoneName={(z) => ZONE_NAMES[z] ?? z} onSelect={setSel} /></div>
 
       <div className="filters mt">
         <Select label="Zone" value={zone} onChange={setZone} allLabel="All zones" options={zones.map((z) => ({ value: z, label: ZONE_NAMES[z] }))} />

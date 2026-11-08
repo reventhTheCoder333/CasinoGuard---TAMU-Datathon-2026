@@ -95,3 +95,25 @@ All recurring costs for these actions are $0. Effects are hypotheses to test; th
 ## Data sources
 
 Dashboard Royale release `0.9.0-draft`: `data/1_prepared_views`, `data/2_machine_decision`, `data/3_guests`, `data/4_context` (including real public LVCVA data in `real_sources`, used for context only), and `data/5_optional/machine_hour` via the team's Q2 hourly output.
+
+## Final-pass analyses (pipeline/analytics.py, tested in pipeline/tests/)
+
+### Q1 · Luck, location or leak
+- **Payout test.** For each machine with play: observed hold = Σ house_win ÷ Σ coin_in; expected hold = Σ theo ÷ Σ coin_in (= 1 − configured RTP). Standard error = √(payout_multiplier_variance × bet-mix factor ÷ paid_spins), using `game_math`. The bet-mix factor E[b²]/E[b]² assumes an equal mix of the listed `bet_options_cents` (bet size per spin is not recorded); it widens the error, so the test is conservative. z = (observed − expected) ÷ SE.
+- **Flag.** |z| at or beyond the Bonferroni-corrected two-sided 5% level across all tested machines ("payout anomaly lead"); z ≤ −2.58 uncorrected is "watch". Months below theo are compared with Binomial(n, 0.5) as a persistence check. A flag is a reason to inspect, not proof of a fault.
+- **Zone-adjusted ranking.** theo/hr ÷ floor-wide median theo/hr of the machine's configuration, then percentiles within the zone; zone score = 0.6 (1 − pct theo ratio) + 0.4 (1 − pct occupancy). A config-ranked candidate is "machine-specific" if it is in the weakest 20% of its own zone, otherwise "location".
+
+### Q2 · Walkway closure
+- Closure dates come from `floor_walkways.closed_from_utc / closed_to_utc`, converted to gaming dates with `calendar_day`. Before / during / after windows have equal length in whole weeks, so the weekday mix is identical.
+- Per zone and window: coin-in per day, theo per day, occupancy (ratio of sums), entries per counter-hour (offline hours excluded).
+- Difference-in-differences = zone % change − rest-of-floor % change over the same windows, which nets out citywide events and season.
+
+### Q6 · Scenarios and break-even
+- Inspection benefit = Σ (theo − house win) per active day of the target machines × operating days; cost includes the inspection downtime valued at each machine's theo per available hour. Low = no fault; base = only flagged machines; high = all targets.
+- Signage benefit = remaining gap after reopening (−DiD after × pre-closure theo/day) × recovery × operating days; low 0%, base 50%, high 100%.
+- Comp pilot savings = (May–Jun − Jan–Apr monthly comp cost) × treatment share × operating days ÷ 30; the annual value of the pricing decision (monthly increase × 12) is reported separately and not counted in the horizon.
+- Break-even = cost ÷ high-scenario benefit.
+
+### Forecast decisions
+- July 2025 is forecast with the regression frozen on April 30 (weekday, Jul 4 federal holiday, no pre-announced events, trend). Inspections use the lowest forecast days after their lead time.
+- Floor-level detection limit ≈ holdout MAE ÷ √days ÷ mean daily coin-in; effects below it are measured at zone or machine level instead.

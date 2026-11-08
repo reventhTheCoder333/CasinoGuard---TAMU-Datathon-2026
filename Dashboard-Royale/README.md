@@ -45,6 +45,14 @@ pip install -r casinoguard/pipeline/requirements.txt
 python casinoguard/pipeline/build_data.py
 ```
 
+Run the tests (pipeline helpers, recomputed results and the assistant):
+
+```bash
+pip install pytest
+python -m pytest casinoguard/pipeline/tests
+python assistant/build_knowledge.py && (cd assistant && python -m pytest)
+```
+
 Run any exploratory analysis — see [analysis/README.md](analysis/README.md).
 
 ## Documentation

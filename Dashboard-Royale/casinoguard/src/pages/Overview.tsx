@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceArea } from 'recharts'
 import { useData } from '../lib/data'
 import { usePeriod } from '../lib/period'
-import type { Meta, Overview as OV, Q2Data, Q3Data, Q4Data, Q5Data, RecsData } from '../lib/types'
+import type { ClaimRow, Meta, Overview as OV, Q2Data, Q3Data, Q4Data, Q5Data, RecsData } from '../lib/types'
 import { dLabel, hours, mLabel, num, pct, pctv, sum, usd, usdShort } from '../lib/format'
 import { Callout, Kpi, Legend, Loading, Meter, PageHead, Panel } from '../components/ui'
 import { axisProps, ChartTip, GOLD, gridProps, SERIES } from '../components/chart'
@@ -19,6 +19,7 @@ export default function Overview() {
   const q4 = useData<Q4Data>('q4')
   const q5 = useData<Q5Data>('q5')
   const recs = useData<RecsData>('recommendations')
+  const claimsData = useData<{ claims: ClaimRow[] }>('claims')
   const insight = useInsight()
 
   const daily = useMemo(() => {
@@ -30,8 +31,8 @@ export default function Overview() {
     })
   }, [ov.data, p])
 
-  if (!meta.data || !ov.data || !q2.data || !q3.data || !q4.data || !q5.data || !recs.data)
-    return <Loading error={meta.error || ov.error || q3.error || q4.error || q5.error} />
+  if (!meta.data || !ov.data || !q2.data || !q3.data || !q4.data || !q5.data || !recs.data || !claimsData.data)
+    return <Loading error={meta.error || ov.error || q3.error || q4.error || q5.error || claimsData.error} />
 
   const r = q4.data.ranges[p.key]
   const tk = q3.data.tickets.filter((t) => p.inRange(t.gaming_date))
@@ -47,10 +48,6 @@ export default function Overview() {
   const full = q4.data.ranges['0-5']
 
   const zm = q2.data.zone_month
-  const bfJan = zm.find((z) => z.zone_id === 'Z-B40' && z.month === '2025-01')!
-  const bfJun = zm.find((z) => z.zone_id === 'Z-B40' && z.month === '2025-06')!
-  const bfDailyChg = ((bfJun.coin_in / bfJun.days) / (bfJan.coin_in / bfJan.days) - 1) * 100
-  const bfEntChg = ((bfJun.entries! / bfJun.coverage_hours!) / (bfJan.entries! / bfJan.coverage_hours!) - 1) * 100
   const zoneChg = q2.data.zones.map((z) => {
     const a = zm.find((x) => x.zone_id === z.zone_id && x.month === '2025-01')!, b = zm.find((x) => x.zone_id === z.zone_id && x.month === '2025-06')!
     return { n: z.zone_name, c: ((b.coin_in / b.days) / (a.coin_in / a.days) - 1) * 100 }
@@ -62,6 +59,7 @@ export default function Overview() {
   const jan = q5.data.monthly[0], jun = q5.data.monthly[5]
 
   const events = q2.data.events.filter((e) => e.end_date >= p.start && e.start_date <= p.end)
+  const claimsFor = (q: string) => claimsData.data!.claims.filter((c) => c.q === q)
 
   const q4m = q4.data.monthly
   // KPI investigation: the same source rows, broken down by month of the selected period.
@@ -167,12 +165,12 @@ export default function Overview() {
       <div className="grid g2 mt">
         <Panel title="The six questions" sub="Headline answer for each analysis (full Jan–Jun period) — click through for evidence">
           {[
-            { k: 'Q1', to: '/q1', q: 'Which machines are underperforming?', a: <>All 10 preliminary candidates sit in <b>Back Forty</b>, where theo per available hour is {usd(ev.back_forty_theo_per_avail_hour)} vs {usd(ev.other_theo_per_avail_hour)} elsewhere. Location, not the machines, is the leading explanation.</> },
-            { k: 'Q2', to: '/q2', q: 'How did demand change across the floor?', a: <>Floor demand shifted unevenly: {zoneMoves}. Back Forty's foot traffic per counter-hour changed {pctv(bfEntChg, 1)} alongside its {pctv(bfDailyChg, 1)} coin-in drop (daily r = {q2.data.traffic_demand_corr['Z-B40'].toFixed(3)}).</> },
+            { k: 'Q1', to: '/q1', q: 'Which machines are truly underperforming?', a: <>{claimsFor('Q1').slice(0, 1).map((c) => c.claim)} {claimsFor('Q1')[2]?.claim}</> },
+            { k: 'Q2', to: '/q2', q: 'How did demand change across the floor, and why?', a: <>Floor demand shifted unevenly ({zoneMoves}). {claimsFor('Q2')[0]?.claim} {claimsFor('Q2')[0]?.result}.</> },
             { k: 'Q3', to: '/q3', q: 'How much play was lost to downtime?', a: <>{num(faultDowntime, 0)} fault-repair hours ≈ {usd(q3.data.summary.est_exposure_fault as number, 0)} of <i>estimated</i> theo exposure. Ridgeline machines log {ridge.tickets_per_machine.toFixed(1)} repairs each vs {halc.tickets_per_machine.toFixed(1)} for Halcyon.</> },
             { k: 'Q4', to: '/q4', q: 'What did tracked players wager, get back and net?', a: <>{usd(full.wager, 0)} wagered, {usd(full.payout, 0)} returned, {usd(full.casino_net, 0)} casino net. {pctv(full.loss_share['5'])} of gross losses come from the top 5% of losing players.</> },
             { k: 'Q5', to: '/q5', q: 'What did comps cost, and did anything change?', a: <>{usd(q5.data.summary.economic_cost)} economic cost. From May 1, points charged per comp dollar roughly <b>halved in every tier</b>; comp cost / tracked theo rose {pctv(jan.cost_pct_tracked_theo)} → {pctv(jun.cost_pct_tracked_theo)}.</> },
-            { k: 'Q6', to: '/q6', q: 'Which actions would we fund with $100,000?', a: <>{recs.data.selected.map((a) => `${a.action_type_id}${a.quantity > 1 ? ` ×${a.quantity}` : ''}`).join(', ')}: <b>{usd(recs.data.spent, 0)}</b> invested, <b>{usd(recs.data.preserved, 0)}</b> preserved. Each is a 30-day test with a baseline and a comparison group.</> },
+            { k: 'Q6', to: '/q6', q: 'Which actions would we fund with $100,000?', a: <>{recs.data.selected.map((a) => `${a.action_type_id}${a.quantity > 1 ? ` ×${a.quantity}` : ''}`).join(', ')}: <b>{usd(recs.data.spent, 0)}</b> invested, <b>{usd(recs.data.preserved, 0)}</b> preserved. One action per cause found — payout lead, location loss, comp pricing — each with low/base/high scenarios and a break-even point.</> },
           ].map((x) => (
             <div className="qrow" key={x.k}>
               <div className="qk">{x.k}</div>

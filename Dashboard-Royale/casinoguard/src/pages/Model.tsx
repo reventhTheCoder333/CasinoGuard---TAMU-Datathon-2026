@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useData } from '../lib/data'
-import type { ForecastData } from '../lib/types'
+import type { ForecastData, RecsData } from '../lib/types'
 import { dLabel, pctv, usd, usdShort } from '../lib/format'
 import { Callout, Kpi, Legend, Loading, PageHead, Panel, Seg } from '../components/ui'
 import { axisProps, ChartTip, GOLD, gridProps, SERIES } from '../components/chart'
@@ -12,9 +12,11 @@ const MODEL_COLOR: Record<string, string> = { mean: '#858479', weekday: SERIES[1
 
 export default function Model() {
   const { data, error } = useData<ForecastData>('forecast')
+  const recs = useData<RecsData>('recommendations').data
   const [view, setView] = useState<View>('holdout')
   const [shown, setShown] = useState<Set<string>>(new Set(['weekday', 'regression']))
   if (!data) return <Loading error={error} />
+  const dec = data.decisions
 
   const base = data.models.find((m) => m.id === 'weekday')!
   const cand = data.models.find((m) => m.id === 'regression')!
@@ -129,12 +131,25 @@ export default function Model() {
           </div>
           <p className="small muted">Other coefficients: known event day {usd(data.coef.event, 0)}, federal holiday {usd(data.coef.holiday, 0)}, trend {usd(data.coef.trend_per_30d, 0)} per 30 days. Associations, not causal effects.</p>
         </Panel>
-        <Panel title="Which decision this informs">
+        <Panel title="Which decisions this changes" sub="July 2025 forecast from the model frozen on April 30 · no data after the freeze is used"
+          source={{ tables: ['1_prepared_views/property_day', '2_machine_decision/action_catalog'], fields: ['coin_in_usd', 'lead_days', 'downtime_minutes'], calc: 'July features: weekday, US federal holiday (Jul 4), no pre-announced events; detection limit = holdout MAE ÷ √days ÷ mean daily coin-in.' }}>
           <ul className="list">
-            <li><b>When to take machines down.</b> Tuesday and Wednesday have the lowest coin-in (then Monday); Friday–Saturday are highest. The 120-minute machine inspections (Q6, A-INSPECT) and any later machine moves should be scheduled early in the week, in quiet hours.</li>
-            <li><b>Measuring July actions.</b> The frozen forecast gives each day's expected coin-in without intervention, so floor-level effects of the Q6 tests are judged against a counterfactual, not against a seasonal June.</li>
-            <li><b>What it does not justify.</b> The event coefficient is not evidence that a $15,000 promotion weekend would pay back; we did not fund one.</li>
+            <li><b>How each action is measured.</b> Over {recs?.selected.find((a) => a.action_type_id === 'A-WAYFINDING')?.operating_days ?? 20} days the forecast cannot detect a floor-level change smaller than about <b>{dec.min_detectable_pct['A-WAYFINDING'].toFixed(1)}%</b> of daily coin-in. The best-case signage effect is <b>{dec.wayfinding_high_effect_floor_pct.toFixed(2)}%</b> of floor coin-in, so judging it against total floor coin-in would be noise. The Q6 plan therefore measures signage at zone level against the other zones, and inspections machine by machine.</li>
+            <li><b>When to take machines down.</b> The five 120-minute inspections are scheduled on the quietest forecast days after the 1-day lead: <b>{dec.quiet_days['A-INSPECT'].map(dLabel).join(', ')}</b>.</li>
+            <li><b>What the model does not change.</b> {dec.regression_changes_schedule ? 'The regression picks different quiet days from the weekday baseline.' : 'The regression picks the same quiet days as the weekday baseline: for scheduling, the simple baseline is enough. The model\'s added value is its error estimate, which sets the measurement design above.'} Its event coefficient is not evidence that a $15,000 promotion weekend would pay back, so none is funded.</li>
           </ul>
+          <div style={{ height: 180 }} className="mt-s">
+            <ResponsiveContainer>
+              <LineChart data={dec.july} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid {...gridProps} />
+                <XAxis dataKey="gaming_date" {...axisProps} tickFormatter={dLabel} minTickGap={30} />
+                <YAxis {...axisProps} tickFormatter={(v) => usdShort(v, 1)} width={56} domain={['auto', 'auto']} />
+                <Tooltip content={<ChartTip fmt={(v) => usd(v, 0)} labelFmt={(l) => dLabel(String(l))} />} />
+                <Line dataKey="pred_regression" name="Regression forecast" stroke={GOLD} strokeWidth={2} dot={false} isAnimationActive={false} />
+                <Line dataKey="pred_weekday" name="Weekday baseline" stroke="#858479" strokeWidth={1.4} strokeDasharray="4 3" dot={false} isAnimationActive={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
           <div className="table-wrap mt-s"><table className="dt"><thead><tr><th>Weekday</th><th className="num">Train avg (Jan–Apr)</th><th className="num">Holdout avg (May–Jun)</th></tr></thead>
             <tbody>{data.weekday_profile.map((w) => <tr key={w.weekday}><td>{w.weekday}</td><td className="num">{usd(w.train_avg, 0)}</td><td className="num">{usd(w.holdout_avg, 0)}</td></tr>)}</tbody></table></div>
         </Panel>

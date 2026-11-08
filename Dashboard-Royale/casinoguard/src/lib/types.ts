@@ -38,6 +38,24 @@ export interface Q1Data {
   team_top10: string[]
   naive_bottom10: { machine_id: string; house_win: number }[]
   config: Record<string, string | number>[]
+  diagnostics: Q1Diagnostics
+}
+
+/** Per-machine luck / location / payout test (pipeline/build_data.py, full Jan–Jun). */
+export interface PayoutDiag {
+  machine_id: string; config_id: string; zone_id: string; theme: string; manufacturer: string; volatility: string
+  spins: number; coin_in: number; theo: number; house_win: number; active_days: number; faults: number
+  exp_hold: number; obs_hold: number; gap: number; se: number; z: number; bet_mix_factor: number
+  months_obs: number; months_below: number; binom_p: number; shortfall: number; shortfall_per_active_day: number | null
+  payout_verdict: string; tph_ratio: number | null; zone_score: number | null; zone_rank: number | null; zone_count: number | null
+  zone_pct: number | null; on_floor_jun30: boolean
+}
+export interface Q1Diagnostics {
+  alpha: number; tests: number; z_flag: number; z_watch: number; location_pct: number; method: string
+  machines: PayoutDiag[]
+  candidates: { machine_id: string; zone_id: string; zone_rank: number; zone_count: number; zone_pct: number; z: number; payout_verdict: string; verdict: string }[]
+  candidates_location: number
+  zone_weakest: string[]
 }
 
 export interface ZoneMonth {
@@ -57,6 +75,23 @@ export interface Q2Data {
   weekday_weekend: { is_weekend: string; zone_id: string; coin_in: number; occupied_hours: number; available_hours: number; days: number }[]
   events: { event_id: string; name: string; event_type: string; start_date: string; end_date: string; announced_date: string; local_scope: string }[]
   city_monthly: Record<string, number | string>[]
+  zone_daily_columns: string[]
+  closures: Closure[]
+}
+
+export interface WindowStats { days: number; coin_in_per_day: number; theo_per_day: number; occupancy: number; entries_per_hour: number }
+export type WindowKey = 'before' | 'during' | 'after'
+export interface ClosureZone extends Record<WindowKey, WindowStats> {
+  chg_during_pct: number; chg_after_pct: number; traffic_chg_during_pct: number; traffic_chg_after_pct: number; did_during_pp: number; did_after_pp: number
+}
+export interface Closure {
+  walkway_id: string; zone_a: string; zone_b: string; reason: string; closed_from_utc: string; closed_to_utc: string
+  windows: { length_days: number; whole_weeks: boolean } & Record<WindowKey, [string, string]>
+  weekday_counts: Record<WindowKey, number[]>
+  zones: Record<string, ClosureZone>
+  floor: Record<WindowKey, WindowStats>
+  events_in_windows: { event_id: string; name: string; start_date: string; end_date: string; window: WindowKey }[]
+  offline_counter_hours: Record<string, number>
 }
 
 export interface Ticket {
@@ -114,6 +149,16 @@ export interface ForecastData {
   excluded_events: { event_id: string; name: string; announced_date: string }[]
   series: { gaming_date: string; local_weekday: string; coin_in_usd: number; split: string; fit_weekday?: number; fit_regression?: number; pred_mean?: number; pred_weekday?: number; pred_ar?: number; pred_regression?: number }[]
   weekday_profile: { weekday: string; train_avg: number; holdout_avg: number }[]
+  decisions: {
+    july: { gaming_date: string; dow: number; holiday: number; pred_regression: number; pred_weekday: number }[]
+    quiet_days: Record<string, string[]>
+    quiet_days_weekday_baseline: Record<string, string[]>
+    min_detectable_pct: Record<string, number>
+    wayfinding_high_effect_floor_pct: number
+    floor_coin_in_per_day: number
+    holdout_mean: number
+    regression_changes_schedule: boolean
+  }
 }
 
 export interface PricedAction {
@@ -128,4 +173,19 @@ export interface RecsData {
   cost_rules: Record<string, string | number | null>[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   evidence: Record<string, any>
+  plan: {
+    'A-INSPECT': { targets: InspectTarget[]; cost_with_downtime: number; full_benefit: number; break_even_pct: number; scenarios: Scenarios }
+    'A-WAYFINDING': { zone_id: string; walkway_id: string; gap_theo_per_day: number; gap_coin_in_per_day: number; did_after_pp: number; full_benefit: number; break_even_pct: number; scenarios: Scenarios }
+    'A-COMP-PILOT': { treatment_share: number; comp_month_janapr: number; comp_month_mayjun: number; full_benefit: number; break_even_pct: number; annual_policy_value: number; scenarios: Scenarios }
+  }
+}
+export interface ScenarioRow { label: string; benefit: number; net: number; roi_pct: number | null }
+export type Scenarios = Record<'low' | 'base' | 'high', ScenarioRow>
+export interface InspectTarget {
+  machine_id: string; config_id: string; zone_id: string; z: number; payout_verdict: string; exp_hold: number; obs_hold: number
+  months_below: number; months_obs: number; daily_shortfall: number; downtime_theo: number
+}
+export interface ClaimRow {
+  q: string; to: string; claim: string; result: string; calculation: string; query: string
+  tables: string[]; fields: string[]; alt: string; test: string; limit: string
 }

@@ -18,8 +18,13 @@ import math
 from datetime import datetime, timezone
 from pathlib import Path
 
+import sys
+
 import numpy as np
 import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import analytics as an  # noqa: E402  (pure, unit-tested helpers)
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
@@ -313,6 +318,78 @@ for mid, g in wk.groupby("machine_id"):
     weekly[mid] = [[w, r2(a), r2(o), r2(t), r2(h), int(f)] for w, a, o, t, h, f in
                    g[["week", "available_hours", "occupied_hours", "theo", "house_win", "faults"]].itertuples(index=False)]
 
+# --- Luck, location or leak? (machine level, full period) -------------------------------
+# Luck: is the gap between observed and expected hold larger than the game's own payout variance
+# allows over the machine's spin count? Location: how does the machine rank against its own zone?
+# Leak: is the payout shortfall statistically significant after correcting for testing every machine?
+gm = game_math.set_index("config_id")
+mt = mm.groupby("machine_id").agg(
+    coin_in=("coin_in", "sum"), theo=("theo", "sum"), house_win=("house_win", "sum"), spins=("spins", "sum"),
+    available_hours=("available_hours", "sum"), occupied_hours=("occupied_hours", "sum"),
+    active_days=("active_days", "sum"), faults=("faults", "sum"),
+).reset_index().merge(static[["machine_id", "config_id", "zone_id", "theme", "manufacturer", "volatility"]], on="machine_id")
+months_obs = mm[mm.spins > 0].groupby("machine_id").size()
+months_below = mm[(mm.spins > 0) & (mm.house_win < mm.theo)].groupby("machine_id").size()
+mt["months_obs"] = mt.machine_id.map(months_obs).fillna(0).astype(int)
+mt["months_below"] = mt.machine_id.map(months_below).fillna(0).astype(int)
+tested = mt[(mt.spins > 0) & (mt.coin_in > 0)].copy()
+N_TESTS = int(len(tested))
+ALPHA = 0.05
+Z_FLAG = an.z_threshold(ALPHA, N_TESTS)   # Bonferroni across every tested machine
+Z_WATCH = an.z_threshold(0.01)            # uncorrected 1% two-sided: worth watching, not a finding
+rows = []
+for r in tested.itertuples(index=False):
+    g = gm.loc[r.config_id]
+    factor = an.bet_mix_factor([float(x) for x in str(g.bet_options_cents).split("|")])
+    gap, se, z = an.hold_z(r.coin_in, r.theo, r.house_win, r.spins, float(g.payout_multiplier_variance), factor)
+    rows.append({"machine_id": r.machine_id, "bet_mix_factor": factor, "exp_hold": r.theo / r.coin_in,
+                 "obs_hold": r.house_win / r.coin_in, "gap": gap, "se": se, "z": z})
+tested = tested.merge(pd.DataFrame(rows), on="machine_id")
+tested["binom_p"] = [an.binom_tail(int(b), int(n)) for b, n in zip(tested.months_below, tested.months_obs)]
+tested["shortfall"] = tested.theo - tested.house_win
+tested["shortfall_per_active_day"] = tested.shortfall / tested.active_days.replace(0, np.nan)
+tested["payout_verdict"] = [an.classify_payout(z, Z_FLAG, Z_WATCH) for z in tested.z]
+min_days_full = 90
+zelig = tested[(tested.active_days >= min_days_full) & (tested.available_hours > 0)]
+zs = an.zone_adjusted_scores(zelig[["machine_id", "zone_id", "config_id", "theo", "available_hours", "occupied_hours"]])
+tested = tested.merge(zs, on="machine_id", how="left")
+on_floor_end = set(pdv[(pdv.gaming_date == END) & pdv.active].machine_id)
+tested["on_floor_jun30"] = tested.machine_id.isin(on_floor_end)
+
+# Verdict for the config-ranked candidates: is the weakness the machine, or its location?
+LOC_PCT = 0.2  # weakest 20% of its own zone = machine-specific
+cand = tested.set_index("machine_id").loc[list(top10.machine_id)]
+cand_rows = []
+for mid, r in cand.iterrows():
+    weak_in_zone = bool(np.isfinite(r.zone_pct) and r.zone_pct <= LOC_PCT)
+    cand_rows.append({"machine_id": mid, "zone_id": r.zone_id, "zone_rank": r.zone_rank, "zone_count": r.zone_count,
+                      "zone_pct": r.zone_pct, "z": r.z, "payout_verdict": r.payout_verdict,
+                      "verdict": "machine-specific: weak even within its zone" if weak_in_zone else "location: typical for its zone"})
+n_location = sum(c["verdict"].startswith("location") for c in cand_rows)
+zone_weakest = tested[tested.zone_pct.notna()].sort_values(["zone_pct", "zone_score"], ascending=[True, False])
+leads = tested.sort_values("z").head(12)
+print(f"   payout test: {N_TESTS} machines, |z| flag {Z_FLAG:.2f}, watch {Z_WATCH:.2f}; "
+      f"leads: {', '.join(tested[tested.payout_verdict == 'payout anomaly lead'].machine_id)}; "
+      f"candidates explained by location: {n_location}/10")
+# A z-score must be reproducible from its parts: z = gap / se
+for r in leads.head(3).itertuples(index=False):
+    check(f"Q1 {r.machine_id} z = gap / se", r.z, r.gap / r.se, tol=1e-9, source="analytics.hold_z")
+check("Q1 payout tests cover every machine with play", N_TESTS, int(((mt.spins > 0) & (mt.coin_in > 0)).sum()), tol=0)
+
+diag_cols = ["machine_id", "config_id", "zone_id", "theme", "manufacturer", "volatility", "spins", "coin_in", "theo", "house_win",
+             "active_days", "faults", "exp_hold", "obs_hold", "gap", "se", "z", "bet_mix_factor", "months_obs", "months_below",
+             "binom_p", "shortfall", "shortfall_per_active_day", "payout_verdict", "tph_ratio", "zone_score", "zone_rank",
+             "zone_count", "zone_pct", "on_floor_jun30"]
+diagnostics = {
+    "alpha": ALPHA, "tests": N_TESTS, "z_flag": Z_FLAG, "z_watch": Z_WATCH, "location_pct": LOC_PCT,
+    "method": "z = (observed hold - expected hold) / sqrt(payout_multiplier_variance x bet_mix_factor / paid_spins); "
+              "flag at the Bonferroni-corrected two-sided 5% level across all tested machines.",
+    "machines": records(tested[diag_cols], money4=("coin_in", "theo", "house_win", "shortfall")),
+    "candidates": clean(cand_rows),
+    "candidates_location": n_location,
+    "zone_weakest": [r.machine_id for r in zone_weakest.groupby("zone_id").head(2).itertuples()],
+}
+
 q1 = {
     "machines": records(static),
     "machine_month": records(mm, money4=("theo", "house_win", "luck", "coin_in", "contribution", "repair_cost")),
@@ -321,6 +398,7 @@ q1 = {
     "team_top10": expected_top10,
     "naive_bottom10": [{"machine_id": k, "house_win": r2(v)} for k, v in naive.items()],
     "config": records(game_math),
+    "diagnostics": diagnostics,
 }
 
 # ==========================================================================
@@ -387,6 +465,60 @@ city = rd(DATA / "4_context/real_sources/city_visitation_monthly.csv.gz")
 city_cols = [c for c in ["month", "visitor_volume", "visitor_yoy_ratio", "hotel_occupancy_ratio", "convention_attendance"] if c in city.columns]
 city = city[city_cols] if "month" in city.columns else pd.DataFrame()
 
+# --- Walkway closures (floor_walkways.closed_from_utc / closed_to_utc) -----------------------
+# For each closure: equal-length before / during / after windows (whole weeks, same weekday mix),
+# per-zone ratio-of-sums stats, and a difference-in-differences against the rest of the floor so
+# citywide swings (events, seasonality) that hit every zone are netted out.
+walkways = rd(DATA / "2_machine_decision/floor_walkways.csv")
+zdt = act.groupby(["gaming_date", "zone_id"]).agg(
+    coin_in=("coin_in_usd", "sum"), theo=("theo_usd", "sum"),
+    occupied_hours=("occupied_hours", "sum"), available_hours=("available_hours", "sum"),
+).reset_index().merge(td, on=["gaming_date", "zone_id"], how="left").fillna({"entries": 0, "coverage_minutes": 0})
+closures = []
+for w in walkways.dropna(subset=["closed_from_utc"]).itertuples(index=False):
+    first_closed = to_gaming_date(pd.Series([w.closed_from_utc]))[0]
+    first_open = to_gaming_date(pd.Series([w.closed_to_utc]))[0]
+    win = an.closure_windows(first_closed, first_open)
+    per_zone = {}
+    for zid in sorted(ZONE_NAME):
+        g = zdt[zdt.zone_id == zid]
+        rest = zdt[zdt.zone_id != zid].groupby("gaming_date").sum(numeric_only=True).reset_index()
+        st = {k: an.window_stats(g, win[k]) for k in ("before", "during", "after")}
+        rs = {k: an.window_stats(rest, win[k]) for k in ("before", "during", "after")}
+        per_zone[zid] = {
+            **{k: st[k] for k in st},
+            "chg_during_pct": an.pct_change(st["before"]["coin_in_per_day"], st["during"]["coin_in_per_day"]),
+            "chg_after_pct": an.pct_change(st["before"]["coin_in_per_day"], st["after"]["coin_in_per_day"]),
+            "traffic_chg_during_pct": an.pct_change(st["before"]["entries_per_hour"], st["during"]["entries_per_hour"]),
+            "traffic_chg_after_pct": an.pct_change(st["before"]["entries_per_hour"], st["after"]["entries_per_hour"]),
+            "did_during_pp": an.diff_in_diff(st["before"]["coin_in_per_day"], st["during"]["coin_in_per_day"],
+                                             rs["before"]["coin_in_per_day"], rs["during"]["coin_in_per_day"]),
+            "did_after_pp": an.diff_in_diff(st["before"]["coin_in_per_day"], st["after"]["coin_in_per_day"],
+                                            rs["before"]["coin_in_per_day"], rs["after"]["coin_in_per_day"]),
+        }
+    floor_st = {k: an.window_stats(zdt.groupby("gaming_date").sum(numeric_only=True).reset_index(), win[k]) for k in ("before", "during", "after")}
+    wd = {k: pd.to_datetime(pd.date_range(*win[k])).day_of_week.value_counts().sort_index().tolist() for k in ("before", "during", "after")}
+    in_windows = events[(events.end_date >= win["before"][0]) & (events.start_date <= win["after"][1])]
+    ev_in = [{"event_id": e.event_id, "name": e.name, "start_date": e.start_date, "end_date": e.end_date,
+              "window": next(k for k in ("before", "during", "after") if e.start_date <= win[k][1])} for e in in_windows.itertuples()]
+    offline = traffic[(traffic.counter_status == "offline") & traffic.gaming_date.between(win["before"][0], win["after"][1])]
+    closures.append({
+        "walkway_id": w.walkway_id, "zone_a": w.zone_a, "zone_b": w.zone_b, "reason": w.closure_reason,
+        "closed_from_utc": w.closed_from_utc, "closed_to_utc": w.closed_to_utc, "windows": win,
+        "weekday_counts": wd, "zones": per_zone, "floor": floor_st, "events_in_windows": ev_in,
+        "offline_counter_hours": {z: int(n) for z, n in offline.groupby("zone_id").size().items()},
+    })
+    check(f"Q2 {w.walkway_id} windows share the same weekday mix", float(wd["before"] == wd["during"] == wd["after"]), 1.0, tol=0,
+          source="analytics.closure_windows")
+    b = per_zone[w.zone_b]
+    print(f"   {w.walkway_id} closed {win['during'][0]}..{win['during'][1]}: {w.zone_b} coin-in/day "
+          f"{b['chg_during_pct']:+.1f}% during, {b['chg_after_pct']:+.1f}% after (DiD {b['did_during_pp']:+.1f} / {b['did_after_pp']:+.1f} pp)")
+# The per-window floor total must equal the sum of the zones
+for c in closures:
+    zsum = sum(c["zones"][z]["during"]["coin_in_per_day"] for z in c["zones"])
+    check(f"Q2 {c['walkway_id']} zones add up to the floor (during)", zsum, c["floor"]["during"]["coin_in_per_day"], tol=0.01,
+          source="zone vs floor ratio of sums")
+
 q2 = {
     "zones": records(zones),
     "zone_month": records(zm),
@@ -400,6 +532,7 @@ q2 = {
     "weekday_weekend": records(wkwe.assign(is_weekend=wkwe.is_weekend.astype(str).str.lower())),
     "events": records(events[["event_id", "name", "event_type", "start_date", "end_date", "announced_date", "local_scope"]]),
     "city_monthly": records(city[city.month.isin(MONTHS)]) if not city.empty else [],
+    "closures": clean(closures),
 }
 
 # ==========================================================================
@@ -855,12 +988,113 @@ mf["tickets_per_machine"] = mf.tickets / mf.machines
 ridge = mf.loc["Ridgeline"]
 
 # Q6 plan: up to 3 action types (GUIDE.md §6); keeping money does not use a slot.
-selected = [action_cost("A-TECH-SHIFT", 1), action_cost("A-INSPECT", 10), action_cost("A-COMP-PILOT", 1)]
+# Each action is tied to one cause the analysis found: a payout lead (Q1), a location loss (Q2 closure)
+# and a comp pricing change (Q5). Targets are chosen from the data, not by hand.
+N_INSPECT = 5
+insp_targets = tested[tested.on_floor_jun30].sort_values("z").head(N_INSPECT)
+closure = max(closures, key=lambda c: -c["zones"][c["zone_b"]]["did_after_pp"]) if closures else None
+wf_zone = closure["zone_b"] if closure else "Z-B40"
+selected = [action_cost("A-INSPECT", N_INSPECT), action_cost("A-WAYFINDING", 1), action_cost("A-COMP-PILOT", 1)]
 spent = sum(a["total_cost"] for a in selected)
 assert len({a["action_type_id"] for a in selected}) <= 3, "more than 3 action types"
 assert spent <= 100000, "plan exceeds the $100,000 budget"
-alt = [action_cost("A-REPLACE-BUY", 10), action_cost("A-REPLACE-LEASE", 10), action_cost("A-WAYFINDING", 1),
-       action_cost("A-PREVENTIVE", 1), action_cost("A-COMP-CHANGE", 1), action_cost("A-PROMO", 1)]
+groups = [a["incompatibility_group"] for a in selected if a["incompatibility_group"]]
+assert len(groups) == len(set(groups)), "two selected actions share an incompatibility group"
+alt = [action_cost("A-TECH-SHIFT", 1), action_cost("A-PREVENTIVE", 1), action_cost("A-REPLACE-LEASE", 10),
+       action_cost("A-REPLACE-BUY", 10), action_cost("A-COMP-CHANGE", 1), action_cost("A-PROMO", 1)]
+sel = {a["action_type_id"]: a for a in selected}
+
+# Inspections: if a flagged machine really pays out above its setting, correcting it restores expected hold.
+# Benefit per machine = its Jan-Jun shortfall per active day (theo - house win) x operating days; the
+# inspection itself takes the machine down for downtime_minutes, valued at its theo per available hour.
+ins = sel["A-INSPECT"]
+insp = insp_targets.assign(
+    daily_shortfall=insp_targets.shortfall_per_active_day.clip(lower=0),
+    theo_per_hour=insp_targets.theo / insp_targets.available_hours,
+)
+insp["downtime_theo"] = insp.theo_per_hour * ins["downtime_minutes"] / 60
+insp_cost = ins["total_cost"] + float(insp.downtime_theo.sum())
+lead_mask = insp.payout_verdict == "payout anomaly lead"
+insp_full = float(insp.daily_shortfall.sum() * ins["operating_days"])
+insp_scen = {
+    "low": {"label": "Every gap is luck: nothing to correct", **an.scenario(insp_cost, 0)},
+    "base": {"label": "Only statistically flagged machines are real faults", **an.scenario(insp_cost, float(insp[lead_mask].daily_shortfall.sum() * ins["operating_days"]))},
+    "high": {"label": "All five shortfalls are real and corrected", **an.scenario(insp_cost, insp_full)},
+}
+
+# Wayfinding: the closed walkway's far zone stayed below its pre-closure level after reopening, net of
+# the rest of the floor (difference-in-differences). Recovery of that remaining gap is the benefit.
+wz = closure["zones"][wf_zone]
+wf = sel["A-WAYFINDING"]
+gap_theo_day = max(0.0, -wz["did_after_pp"] / 100 * wz["before"]["theo_per_day"])
+gap_coin_day = max(0.0, -wz["did_after_pp"] / 100 * wz["before"]["coin_in_per_day"])
+wf_full = gap_theo_day * wf["operating_days"]
+wf_scen = {
+    "low": {"label": "Signs recover none of the gap", **an.scenario(wf["total_cost"], 0)},
+    "base": {"label": "Signs recover half of the remaining gap", **an.scenario(wf["total_cost"], wf_full * 0.5)},
+    "high": {"label": "Signs close the whole remaining gap", **an.scenario(wf["total_cost"], wf_full)},
+}
+
+# Comp pilot: since May 1 comps cost fewer points, and monthly comp cost rose. Restoring the earlier
+# pricing for a randomised half of players can save at most half of that increase, pro rata to the days left.
+pil = sel["A-COMP-PILOT"]
+comp_mo_pre = float(mp[mp.month.isin(MONTHS[:4])].comp_cost.mean())
+comp_mo_post = float(mp[mp.month.isin(MONTHS[4:])].comp_cost.mean())
+TREAT_SHARE = 0.5
+pil_full = max(0.0, comp_mo_post - comp_mo_pre) * TREAT_SHARE * pil["operating_days"] / 30
+pil_scen = {
+    "low": {"label": "Treatment players redeem as before", **an.scenario(pil["total_cost"], 0)},
+    "base": {"label": "Treatment comp cost falls halfway back to Jan-Apr", **an.scenario(pil["total_cost"], pil_full * 0.5)},
+    "high": {"label": "Treatment comp cost returns to Jan-Apr level", **an.scenario(pil["total_cost"], pil_full)},
+}
+plan = {
+    "A-INSPECT": {"targets": records(insp[["machine_id", "config_id", "zone_id", "z", "payout_verdict", "exp_hold", "obs_hold",
+                                          "months_below", "months_obs", "daily_shortfall", "downtime_theo"]]),
+                  "cost_with_downtime": insp_cost, "full_benefit": insp_full,
+                  "break_even_pct": an.break_even_share(insp_cost, insp_full), "scenarios": insp_scen},
+    "A-WAYFINDING": {"zone_id": wf_zone, "walkway_id": closure["walkway_id"], "gap_theo_per_day": gap_theo_day,
+                     "gap_coin_in_per_day": gap_coin_day, "did_after_pp": wz["did_after_pp"], "full_benefit": wf_full,
+                     "break_even_pct": an.break_even_share(wf["total_cost"], wf_full), "scenarios": wf_scen},
+    "A-COMP-PILOT": {"treatment_share": TREAT_SHARE, "comp_month_janapr": comp_mo_pre, "comp_month_mayjun": comp_mo_post,
+                     "full_benefit": pil_full, "break_even_pct": an.break_even_share(pil["total_cost"], pil_full), "scenarios": pil_scen,
+                     # Beyond the 30-day horizon: what the decision the pilot informs is worth per year if the
+                     # May pricing were reverted floor-wide (the monthly cost increase x 12). Not counted as in-horizon benefit.
+                     "annual_policy_value": max(0.0, comp_mo_post - comp_mo_pre) * 12},
+}
+for aid, v in plan.items():
+    print(f"   {aid}: cost ${sel[aid]['total_cost']:,.0f}, full benefit ${v['full_benefit']:,.0f}, break-even {v['break_even_pct']:.0f}% of full")
+check("Q6 plan within budget", float(spent <= 100000), 1.0, tol=0, source="action_catalog costs, GUIDE.md formula")
+check("Q6 spent equals sum of action costs", spent, sum(a["total_cost"] for a in selected), tol=0.001)
+
+# Frozen-forecast decisions for July: the Apr 30 model (no data after the freeze) gives expected
+# coin-in for every July day. Used to (1) pick the quietest days for downtime-causing work after each
+# lead time and (2) size how large an effect must be to be measurable at floor level.
+JULY_HOLIDAYS = {"2025-07-04"}  # US federal holiday, published long in advance
+july = an.calendar_frame("2025-07-01", HORIZON, JULY_HOLIDAYS).assign(event=0)
+july_reg = design(july, t0) @ beta
+july_wd = july.dow.map(wd_mean).values
+july_out = july.assign(pred_regression=july_reg, pred_weekday=july_wd)
+def quiet_days(aid, n=3, col="pred_regression"):
+    lead = int(catalog.set_index("action_type_id").loc[aid].lead_days)
+    w = july_out.iloc[lead:]
+    return list(w.nsmallest(n, col).gaming_date)
+holdout_mean = float(test.coin_in_usd.mean())
+reg_mae = next(m_["mae"] for m_ in models if m_["id"] == "regression")
+mde = {a["action_type_id"]: an.min_detectable_share(reg_mae, holdout_mean, a["operating_days"]) for a in selected}
+floor_coin_day = float(prop.coin_in_usd.mean())
+forecast["decisions"] = {
+    "july": records(july_out[["gaming_date", "dow", "holiday", "pred_regression", "pred_weekday"]]),
+    "quiet_days": {"A-INSPECT": quiet_days("A-INSPECT", N_INSPECT)},
+    "quiet_days_weekday_baseline": {"A-INSPECT": quiet_days("A-INSPECT", N_INSPECT, "pred_weekday")},
+    "min_detectable_pct": mde,
+    "wayfinding_high_effect_floor_pct": gap_coin_day / floor_coin_day * 100,
+    "floor_coin_in_per_day": floor_coin_day,
+    "holdout_mean": holdout_mean,
+}
+same_days = forecast["decisions"]["quiet_days"]["A-INSPECT"] == forecast["decisions"]["quiet_days_weekday_baseline"]["A-INSPECT"]
+forecast["decisions"]["regression_changes_schedule"] = not same_days
+print(f"   July quiet days (inspections): {forecast['decisions']['quiet_days']['A-INSPECT']}; "
+      f"floor-level detection limit over 20 days ~{mde['A-WAYFINDING']:.1f}% vs wayfinding high effect {gap_coin_day / floor_coin_day * 100:.2f}%")
 
 # Sensitivity (scenario) estimates — theo-based, clearly labelled as assumptions
 wf_days = action_cost("A-WAYFINDING", 1)["operating_days"]
@@ -873,7 +1107,7 @@ ridge_theo_rate = rr.theo_usd.sum() / rr.available_hours.sum()
 ridge_dt_per_day = ridge.downtime / 181
 recs = {
     "budget": 100000, "horizon_days": HORIZON, "spent": round(spent, 2), "preserved": round(100000 - spent, 2),
-    "selected": selected, "alternatives": alt,
+    "selected": selected, "alternatives": alt, "plan": clean(plan),
     "catalog": records(catalog.assign(unit_cost=catalog.unit_cost_cents / 100, recurring_per_day=catalog.recurring_cost_cents_per_day / 100)),
     "cost_rules": records(cost_rules),
     "evidence": {
@@ -906,6 +1140,151 @@ recs = {
     },
 }
 
+# ==========================================================================
+# CLAIMS & EVIDENCE APPENDIX — every number below is read from the payloads above
+# ==========================================================================
+def usd0(x):
+    return f"{'-' if x < 0 else ''}${abs(x):,.0f}"
+
+
+def usd2(x):
+    return f"{'-' if x < 0 else ''}${abs(x):,.2f}"
+
+
+dg = q1["diagnostics"]
+lead_rows = [m for m in dg["machines"] if m["payout_verdict"] == "payout anomaly lead"]
+top_lead = min(dg["machines"], key=lambda m: m["z"])
+cl = closures[0] if closures else None
+clz = cl["zones"][cl["zone_b"]] if cl else None
+pit = cl["zones"].get("Z-PIT") if cl else None
+fr = q4["ranges"]["0-5"]
+s3 = q3["summary"]
+ppd_pre = {r["tier_before"]: r["points_per_face_dollar"] for r in recs["evidence"]["ppd_pre"]}
+ppd_post = {r["tier_before"]: r["points_per_face_dollar"] for r in recs["evidence"]["ppd_post"]}
+mods = {m_["id"]: m_ for m_ in forecast["models"]}
+mfr = {m_["manufacturer"]: m_ for m_ in recs["evidence"]["manufacturer"]}
+pl = recs["plan"]
+ev_ = recs["evidence"]
+dec = forecast["decisions"]
+claims = [
+    {"q": "Q1", "to": "/q1",
+     "claim": f"Of the 10 config-ranked candidates, {10 - dg['candidates_location']} are weak even within their own zone; "
+              f"{dg['candidates_location']} only look weak because of where they stand.",
+     "result": "; ".join(f"{c['machine_id']} rank {int(c['zone_rank'])}/{int(c['zone_count'])}" for c in dg["candidates"]),
+     "calculation": "zone_score = 0.6(1 - pct_zone(theo/hr / config median)) + 0.4(1 - pct_zone(occupancy)); machine-specific if in the weakest "
+                    f"{dg['location_pct']:.0%} of its zone",
+     "query": "prepared_daily_view[active] .groupby(machine_id).sum(theo_usd, available_hours, occupied_hours) -> analytics.zone_adjusted_scores",
+     "tables": ["1_prepared_views/prepared_daily_view"], "fields": ["zone_id", "config_id", "theo_usd", "available_hours", "occupied_hours"],
+     "alt": "All ten are simply in a quiet zone (location)", "test": "Re-ranked every machine against its own zone; half stay near the bottom",
+     "limit": "The 20% cut-off and 0.6/0.4 weights are judgement calls; dominant zone used for machines that moved"},
+    {"q": "Q1", "to": "/q1",
+     "claim": "The candidates' low results are not bad luck.",
+     "result": f"Payout z-scores of the 10 candidates range {min(c['z'] for c in dg['candidates']):+.2f} to {max(c['z'] for c in dg['candidates']):+.2f}; "
+               f"none below -{dg['z_watch']:.2f}",
+     "calculation": "z = (house_win/coin_in - theo/coin_in) / sqrt(payout_multiplier_variance x bet_mix_factor / paid_spins)",
+     "query": "machine totals of coin_in_usd, theo_usd, house_win_usd, paid_spins JOIN game_math ON config_id",
+     "tables": ["1_prepared_views/prepared_daily_view", "2_machine_decision/game_math"], "fields": ["house_win_usd", "theo_usd", "paid_spins", "payout_multiplier_variance", "bet_options_cents"],
+     "alt": "High-volatility variance hid a weak machine", "test": "Variance-scaled z-score per machine using the game's own payout variance",
+     "limit": "Bet sizes per spin are not in the data; an equal mix of the listed bets is assumed (more conservative than equal bets)"},
+    {"q": "Q1", "to": "/q1",
+     "claim": f"{top_lead['machine_id']} paid out significantly more than its configuration allows: a lead to inspect, not proof of a fault.",
+     "result": f"Hold {top_lead['obs_hold'] * 100:.2f}% vs expected {top_lead['exp_hold'] * 100:.2f}%; z = {top_lead['z']:.2f} "
+               f"(flag {dg['z_flag']:.2f} after correcting for {dg['tests']} machines); below theo in {top_lead['months_below']} of {top_lead['months_obs']} months; "
+               f"{len(lead_rows)} machine(s) flagged in total",
+     "calculation": f"Bonferroni two-sided {dg['alpha']:.0%} threshold across {dg['tests']} machines; months below theo vs Binomial(n, 0.5)",
+     "query": "machine_month: house_win < theo per month; totals JOIN game_math",
+     "tables": ["1_prepared_views/prepared_daily_view", "2_machine_decision/game_math"], "fields": ["house_win_usd", "theo_usd", "paid_spins", "payout_multiplier_variance"],
+     "alt": "An unlucky streak on a medium-volatility game", "test": "Shortfall exceeds the multiple-testing threshold and persists across months",
+     "limit": "Statistical evidence only; an inspection must confirm. No wrongdoing is implied"},
+    {"q": "Q2", "to": "/q2",
+     "claim": f"The {cl['walkway_id']} walkway closure ({cl['windows']['during'][0]} to {cl['windows']['during'][1]}) coincides with {ZONE_NAME[cl['zone_b']]}'s steepest drop, and the zone has not fully recovered since it reopened." if cl else "No walkway closures in the data.",
+     "result": (f"Coin-in/day {clz['chg_during_pct']:+.1f}% during and {clz['chg_after_pct']:+.1f}% after vs the {cl['windows']['length_days']} days before; "
+                f"net of the rest of the floor {clz['did_during_pp']:+.1f} pp during, {clz['did_after_pp']:+.1f} pp after; entries/hr {clz['traffic_chg_during_pct']:+.1f}% during") if cl else "",
+     "calculation": "Equal 5-week windows (same weekday mix); difference-in-differences = zone % change - rest-of-floor % change",
+     "query": "floor_walkways closed_from/closed_to -> gaming dates; prepared_daily_view + zone_traffic_hourly by zone x window",
+     "tables": ["2_machine_decision/floor_walkways", "1_prepared_views/prepared_daily_view", "4_context/zone_traffic_hourly"], "fields": ["closed_from_utc", "closed_to_utc", "coin_in_usd", "entries_count", "coverage_minutes"],
+     "alt": "Citywide seasonality or events (March tournament, CinemaCon, NAB)", "test": "Difference-in-differences nets out swings that hit every zone",
+     "limit": "Closure timing is the only change tested; traffic counts are entries, not visitors"},
+    {"q": "Q2", "to": "/q2",
+     "claim": "Center Pit gained while the walkway was closed, and kept the gain after it reopened.",
+     "result": (f"Center Pit coin-in/day {pit['chg_during_pct']:+.1f}% during, {pit['chg_after_pct']:+.1f}% after "
+                f"(net of the rest of the floor {pit['did_during_pp']:+.1f} / {pit['did_after_pp']:+.1f} pp)") if pit else "",
+     "calculation": "Same windows and difference-in-differences as above",
+     "query": "prepared_daily_view[zone_id = Z-PIT] by window",
+     "tables": ["1_prepared_views/prepared_daily_view"], "fields": ["coin_in_usd", "zone_id"],
+     "alt": "Center Pit was already growing before the closure", "test": "Monthly trend shown on the page; gain concentrated from March",
+     "limit": "Consistent with displaced players, but individual routes are not observed"},
+    {"q": "Q3", "to": "/q3",
+     "claim": "Downtime and lost play are measured consistently from two independent sources.",
+     "result": f"{s3['downtime_hours_all']:,.2f} h downtime ({s3['tickets']:,} tickets, {s3['fault_repairs']:,} fault repairs); "
+               f"estimated fault exposure {usd2(s3['est_exposure_fault'])}",
+     "calculation": "downtime = available_at - opened_at (UTC); exposure = fault downtime x machine theo per available hour",
+     "query": "operations durations; prepared_daily_view scheduled - available hours on active days",
+     "tables": ["2_machine_decision/operations", "1_prepared_views/prepared_daily_view"], "fields": ["opened_at_utc", "available_at_utc", "available_hours", "theo_usd"],
+     "alt": "Players switch to a nearby machine", "test": "Exposure labelled an upper bound",
+     "limit": "Average play rate assumed; not actual lost revenue"},
+    {"q": "Q3", "to": "/q3",
+     "claim": "Ridgeline machines are the main source of repairs.",
+     "result": ", ".join(f"{k} {v['tickets_per_machine']:.2f}" for k, v in sorted(mfr.items(), key=lambda kv: -kv[1]["tickets_per_machine"])) + " tickets per machine",
+     "calculation": "tickets / machines per manufacturer", "query": "operations JOIN machines ON machine_id GROUP BY manufacturer",
+     "tables": ["2_machine_decision/operations", "2_machine_decision/machines"], "fields": ["manufacturer", "operation_id"],
+     "alt": "Ridgeline machines are older or busier", "test": "Normalised by fleet size", "limit": "Age and usage not controlled"},
+    {"q": "Q4", "to": "/q4",
+     "claim": "Tracked players' net result and its concentration.",
+     "result": f"Wagered {usd2(fr['wager'])}, paid {usd2(fr['payout'])}, casino net {usd2(fr['casino_net'])}; "
+               f"top 5% of losers = {fr['loss_share']['5']:.2f}% of gross losses; wagering Gini {fr['gini_wager']:.4f}",
+     "calculation": "casino net = sum coin-in - sum payout; Gini over per-player totals", "query": "player_period GROUP BY player_id",
+     "tables": ["1_prepared_views/player_period"], "fields": ["tracked_coin_in_usd", "tracked_payout_usd"],
+     "alt": "A few lucky or unlucky sessions", "test": "Results shown for every month range", "limit": "Carded play only; within-period netting"},
+    {"q": "Q5", "to": "/q5",
+     "claim": "Points charged per comp dollar halved on May 1 in every tier.",
+     "result": "; ".join(f"{t} {ppd_pre[t]:.1f} -> {ppd_post[t]:.1f}" for t in ppd_pre if t in ppd_post) +
+               f"; comp cost {usd2(q5['summary']['economic_cost'])} reconciles across three sources",
+     "calculation": "points per $ = -sum(points_delta) / (sum(face_value_cents) / 100) over redemptions", "query": "loyalty_ledger[event_type = redeem] by gaming date and tier",
+     "tables": ["3_guests/loyalty_ledger", "1_prepared_views/player_period", "1_prepared_views/property_day"], "fields": ["points_delta", "face_value_cents", "tier_before", "comp_cost_usd"],
+     "alt": "Tier mix shift", "test": "Every tier halved on the same day", "limit": "No policy record; cause not attributed"},
+    {"q": "ML", "to": "/model",
+     "claim": "The calendar model forecasts slightly better than a weekday average, but does not change the July schedule.",
+     "result": f"Holdout MAE {usd0(mods['regression']['mae'])} vs weekday {usd0(mods['weekday']['mae'])} vs mean {usd0(mods['mean']['mae'])}; "
+               f"gain 95% CI {usd0(mods['regression']['gain_ci95'][0])} to {usd0(mods['regression']['gain_ci95'][1])}; same quiet days as the baseline: {not dec['regression_changes_schedule']}",
+     "calculation": "Train Jan 1-Apr 30, frozen; holdout May 1-Jun 30; 7-day moving-block bootstrap of the MAE gain", "query": "property_day.coin_in_usd by gaming_date",
+     "tables": ["1_prepared_views/property_day", "2_machine_decision/calendar_day", "4_context/events"], "fields": ["coin_in_usd", "federal_holiday", "announced_date"],
+     "alt": "Holdout noise", "test": "Bootstrap interval; two baselines", "limit": "Four months of training"},
+    {"q": "ML", "to": "/model",
+     "claim": "The forecast decides how each action is measured: floor-level effects of these actions would be invisible.",
+     "result": f"Detection limit over {sel['A-WAYFINDING']['operating_days']} days ~{dec['min_detectable_pct']['A-WAYFINDING']:.2f}% of floor coin-in; "
+               f"best-case signage effect {dec['wayfinding_high_effect_floor_pct']:.2f}% -> measure at zone level against other zones",
+     "calculation": "detection limit = MAE / sqrt(days) / mean daily coin-in", "query": "forecast holdout errors",
+     "tables": ["1_prepared_views/property_day"], "fields": ["coin_in_usd"],
+     "alt": "Measure everything against total floor coin-in", "test": "Compared each effect with the forecast's error", "limit": "Treats daily errors as independent"},
+    {"q": "Q6", "to": "/recommendations",
+     "claim": f"Inspecting {len(pl['A-INSPECT']['targets'])} machines breaks even if {pl['A-INSPECT']['break_even_pct']:.0f}% of their combined shortfall is real.",
+     "result": "; ".join(f"{k}: net {usd0(v['net'])}" for k, v in pl["A-INSPECT"]["scenarios"].items()),
+     "calculation": "benefit = sum(daily shortfall) x operating days; cost includes inspection downtime at each machine's theo/hr",
+     "query": "Q1 payout test, 5 lowest z on the floor on Jun 30", "tables": ["2_machine_decision/action_catalog", "1_prepared_views/prepared_daily_view"], "fields": ["unit_cost_cents", "lead_days", "downtime_minutes"],
+     "alt": "The shortfalls are luck", "test": "Low scenario assumes exactly that", "limit": "Correction assumed to restore configured hold at once"},
+    {"q": "Q6", "to": "/recommendations",
+     "claim": f"Signage for {ZONE_NAME[pl['A-WAYFINDING']['zone_id']]} breaks even at {pl['A-WAYFINDING']['break_even_pct']:.0f}% recovery of the gap left after the walkway reopened.",
+     "result": f"Remaining gap {usd0(pl['A-WAYFINDING']['gap_theo_per_day'])} theo/day; " + "; ".join(f"{k}: net {usd0(v['net'])}" for k, v in pl["A-WAYFINDING"]["scenarios"].items()),
+     "calculation": "gap = -DiD(after) x pre-closure theo/day; benefit = gap x recovery x operating days",
+     "query": "Q2 closure windows", "tables": ["2_machine_decision/floor_walkways", "1_prepared_views/prepared_daily_view"], "fields": ["theo_usd", "closed_to_utc"],
+     "alt": "The zone would recover anyway", "test": "Measured against other zones over the same days", "limit": "Signage effect size unknown; theo, not profit"},
+    {"q": "Q6", "to": "/recommendations",
+     "claim": "The comp pilot does not pay back within 30 days; it is funded for the decision it informs.",
+     "result": f"In-horizon savings at most {usd0(pl['A-COMP-PILOT']['full_benefit'])} vs {usd0(sel['A-COMP-PILOT']['total_cost'])}; "
+               f"the pricing decision is worth up to {usd0(pl['A-COMP-PILOT']['annual_policy_value'])}/year",
+     "calculation": "savings = (May-Jun - Jan-Apr monthly comp cost) x treatment share x days/30", "query": "player_period comp_cost_usd by month",
+     "tables": ["1_prepared_views/player_period", "2_machine_decision/action_catalog"], "fields": ["comp_cost_usd"],
+     "alt": "Change comp rates floor-wide instead", "test": "A floor-wide change cannot separate pricing from seasonality", "limit": "25 days may be too short to see visit changes"},
+    {"q": "Q6", "to": "/recommendations",
+     "claim": "An extra technician is not funded: it cannot recover its cost.",
+     "result": f"Waiting time is {ev_['tech_shift_response_share'] * 100:.1f}% of fault downtime -> at most {usd0(ev_['tech_shift_max_monthly_exposure'])} per 30 days vs {usd0(next(a['total_cost'] for a in alt if a['action_type_id'] == 'A-TECH-SHIFT'))}",
+     "calculation": "max recovery = fault exposure per 30 days x response share", "query": "operations work_started_at - opened_at",
+     "tables": ["2_machine_decision/operations", "2_machine_decision/action_catalog"], "fields": ["work_started_at_utc", "opened_at_utc"],
+     "alt": "Faster response also shortens repairs", "test": "Upper bound assumes all waiting is removed", "limit": "Ignores coverage benefits"},
+]
+check("Claims appendix covers every question", float({c["q"] for c in claims} >= {"Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "ML"}), 1.0, tol=0)
+
 meta = {
     "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     "data_release": json.load(open(DATA / "manifest.json")).get("version", "unknown") if (DATA / "manifest.json").exists() else "unknown",
@@ -924,6 +1303,7 @@ write("q4", q4)
 write("q5", q5)
 write("forecast", forecast)
 write("recommendations", recs)
+write("claims", {"generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "claims": claims})
 
 failed = [c for c in checks if not c["ok"]]
 print(f"\nVerification: {len(checks) - len(failed)}/{len(checks)} checks passed")

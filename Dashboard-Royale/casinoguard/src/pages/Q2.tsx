@@ -7,6 +7,7 @@ import type { Q2Data, ZoneMonth } from '../lib/types'
 import { dLabel, mLabel, num, pct, signedPct, usd, usdShort } from '../lib/format'
 import { Callout, Legend, Loading, PageHead, Panel, Seg, Select } from '../components/ui'
 import { DataTable, type Column } from '../components/DataTable'
+import { ClosureAnalysis } from '../components/ClosureAnalysis'
 import { axisProps, ChartTip, GOLD, gridProps, SERIES, ZONE_COLORS } from '../components/chart'
 
 type MetricKey = 'daily_coin' | 'occupancy' | 'cph' | 'eph' | 'daily_theo'
@@ -201,6 +202,14 @@ export default function Q2() {
           )}
         </Panel>
       </div>
+
+      {data.closures.length > 0 && (
+        <section className="mt" aria-label="Walkway closure analysis">
+          <h2 style={{ marginTop: 26, marginBottom: 10 }}>Why demand moved: the walkway closure</h2>
+          {data.closures.map((c) => <ClosureAnalysis key={c.walkway_id} data={data} closure={c} onZone={(z) => setZone(z)} />)}
+          <p className="small muted mt-s">Closure analysis uses fixed windows around the closure dates, so it does not change with the analysis period.</p>
+        </section>
+      )}
 
       <Panel className="mt" title={`Zone comparison: ${mLabel(first)} vs ${mLabel(last)}`} sub="Click a zone to drill down. Δ = relative change."
         source={{ tables: ['1_prepared_views/prepared_daily_view', '4_context/zone_traffic_hourly'], script: 'pipeline/build_data.py (Q2) · cross-checked with analysis/q2_floor_demand/outputs/q2_zone_traffic_jan_june_comparison.csv' }}>

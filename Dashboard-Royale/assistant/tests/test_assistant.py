@@ -78,7 +78,9 @@ class TestChatEndpoint(unittest.TestCase):
         return mock.patch.object(assistant, "ollama_request", return_value={"message": {"content": answer}})
 
     def test_answer_with_sources(self):
-        with self.fake_ollama("Q6 invests $27,520 and preserves $72,480.") as call:
+        recs = json.loads((Path(__file__).resolve().parents[2] / "casinoguard" / "public" / "data" / "recommendations.json").read_text())
+        spent, kept = f"${recs['spent']:,.0f}", f"${recs['preserved']:,.0f}"
+        with self.fake_ollama(f"Q6 invests {spent} and preserves {kept}.") as call:
             response = self.client.post("/api/assistant/chat", json={"message": "What is the Q6 budget plan?"})
 
         body = response.json()
@@ -87,7 +89,7 @@ class TestChatEndpoint(unittest.TestCase):
         self.assertEqual(body["sources"][0]["topic"], "Q6")
         prompt = call.call_args.args[1]["messages"][0]["content"]
         self.assertIn("CONTEXT", prompt)
-        self.assertIn("$27,520", prompt)
+        self.assertIn(spent, prompt)
 
     def test_invented_figures_are_reported(self):
         with self.fake_ollama("Q6 invests $99,999."):

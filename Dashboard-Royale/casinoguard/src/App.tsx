@@ -19,6 +19,7 @@ import Explorer from './pages/Explorer'
 
 // Three.js is only downloaded when the explorer is opened.
 const CasinoExplorer = lazy(() => import('./explorer/CasinoExplorer'))
+const AML_URL: string | undefined = import.meta.env.VITE_AML_URL || (import.meta.env.DEV ? 'http://localhost:5173' : undefined)
 
 export const NAV = [
   { to: '/', key: '◆', label: 'Overview', group: 'Executive' },
@@ -98,15 +99,13 @@ function Shell() {
         <button className="btn" onClick={() => setExplorerOpen(true)} style={{ margin: '12px 16px 0', justifyContent: 'center' }}>
           Explore in 3D
         </button>
-        <a
-          className="btn gold"
-          href={import.meta.env.VITE_AML_URL || 'http://localhost:5173'}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ margin: '12px 16px', textAlign: 'center', textDecoration: 'none' }}
-        >
-          Check AML
-        </a>
+        {/* The AML demo runs locally; public builds show the link only when VITE_AML_URL points somewhere reachable. */}
+        {AML_URL && (
+          <a className="btn gold" href={AML_URL} target="_blank" rel="noopener noreferrer"
+            style={{ margin: '12px 16px', textAlign: 'center', textDecoration: 'none' }}>
+            Check AML
+          </a>
+        )}
         <div className="sidebar-foot">
           Fictional casino · synthetic data<br />
           Dashboard Royale · TAMU Datathon

@@ -1,9 +1,8 @@
-import { useMemo, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useData } from '../lib/data'
-import type { ForecastData, PricedAction, Q1Data, Q2Data, Q3Data, Q5Data, RecsData } from '../lib/types'
-import { scoreMachines } from '../lib/q1'
-import { mLabel, num, pct, pctv, usd } from '../lib/format'
+import type { ForecastData, PricedAction, Q1Data, Q2Data, Q3Data, RecsData, Scenarios } from '../lib/types'
+import { dLabel, num, pct, signedPct, usd } from '../lib/format'
 import { Callout, Kpi, Loading, PageHead, Panel } from '../components/ui'
 import { DataTable } from '../components/DataTable'
 import { SERIES } from '../components/chart'
@@ -17,17 +16,22 @@ export default function Recommendations() {
   const q1 = useData<Q1Data>('q1')
   const q2 = useData<Q2Data>('q2')
   const q3 = useData<Q3Data>('q3')
-  const q5 = useData<Q5Data>('q5')
   const fc = useData<ForecastData>('forecast')
-  const top10 = useMemo(() => (q1.data ? scoreMachines(q1.data, ['2025-01', '2025-02', '2025-03', '2025-04', '2025-05', '2025-06'], 181).filter((m) => m.rank !== null && m.rank <= 10) : []), [q1.data])
 
-  if (!recs.data || !q1.data || !q2.data || !q3.data || !q5.data || !fc.data) return <Loading error={recs.error || q1.error || q3.error} />
+  if (!recs.data || !q1.data || !q2.data || !q3.data || !fc.data) return <Loading error={recs.error || q1.error || q2.error || q3.error || fc.error} />
   const r = recs.data
   const ev = r.evidence
-  const s3 = q3.data.summary as Record<string, number>
   const byId = (id: string) => r.selected.find((a) => a.action_type_id === id)!
   const alt = (id: string) => r.alternatives.find((a) => a.action_type_id === id)!
-  const tech = byId('A-TECH-SHIFT'), inspect = byId('A-INSPECT'), pilot = byId('A-COMP-PILOT')
+  const s3 = q3.data.summary as Record<string, number>
+  const inspect = byId('A-INSPECT'), wayf = byId('A-WAYFINDING'), pilot = byId('A-COMP-PILOT')
+  const plan = r.plan
+  const pi = plan['A-INSPECT'], pw = plan['A-WAYFINDING'], pp = plan['A-COMP-PILOT']
+  const dg = q1.data.diagnostics
+  const dec = fc.data.decisions
+  const zn = Object.fromEntries(q2.data.zones.map((z) => [z.zone_id, z.zone_name]))
+  const closure = q2.data.closures.find((c) => c.walkway_id === pw.walkway_id)
+  const flagged = pi.targets.filter((t) => t.payout_verdict === 'payout anomaly lead')
 
   // Every displayed total is recomputed from the official catalogue rather than trusted.
   const catalog = new Map(r.catalog.map((c) => [String(c.action_type_id), c]))
@@ -51,19 +55,17 @@ export default function Recommendations() {
   ]
   const allPass = checks.every((c) => c[1])
 
-  // Context from Q1–Q5, recomputed from their datasets.
-  const coinByMonth = [...new Set(q2.data.zone_month.map((z) => z.month))].sort().map((m) => ({ m, coin: q2.data!.zone_month.filter((z) => z.month === m).reduce((x, z) => x + z.coin_in, 0) }))
-  const first = coinByMonth[0], last = coinByMonth[coinByMonth.length - 1]
-  const peak = coinByMonth.reduce((a, b) => (b.coin > a.coin ? b : a))
-  const low = coinByMonth.reduce((a, b) => (b.coin < a.coin ? b : a))
-  const inBF = top10.filter((m) => m.period_zone === 'Z-B40').length
-  const aboveTheo = top10.filter((m) => m.luck > 0).length
-  const lease = alt('A-REPLACE-LEASE'), buy = alt('A-REPLACE-BUY'), wf = alt('A-WAYFINDING'), pm = alt('A-PREVENTIVE'), promo = alt('A-PROMO'), change = alt('A-COMP-CHANGE')
+  const tech = alt('A-TECH-SHIFT'), pm = alt('A-PREVENTIVE'), lease = alt('A-REPLACE-LEASE'), buy = alt('A-REPLACE-BUY'), promo = alt('A-PROMO'), change = alt('A-COMP-CHANGE')
+  const why = (id: string) => ({
+    'A-INSPECT': `Q1 payout test: ${flagged.map((t) => t.machine_id).join(', ') || 'no machine'} flagged after correction; the next ${pi.targets.length - flagged.length} lowest z-scores on the floor are checked in the same visit.`,
+    'A-WAYFINDING': `Q2: ${zn[pw.zone_id]} stayed ${Math.abs(pw.did_after_pp).toFixed(1)} pp below the rest of the floor after the ${pw.walkway_id} walkway reopened.`,
+    'A-COMP-PILOT': 'Q5: points per comp dollar halved on May 1 and monthly comp cost rose; only a randomised test separates pricing from season.',
+  } as Record<string, string>)[id] ?? ''
 
   return (
     <div>
       <PageHead eyebrow={`Q6 · $100,000 budget · ${r.horizon_days} days from July 1, 2025`} title="Which actions would we fund with $100,000, and how would we know they worked?"
-        question={<>The challenge allows up to {MAX_ACTION_TYPES} action types from <code>action_catalog</code> over the {r.horizon_days} days from July 1, or keeping the money. Costs use the challenge formula: quantity × (unit cost + daily recurring cost × max(0, {r.horizon_days} − lead days)). The catalogue gives prices and limits, not results — each action below is a test with a measurement plan, not a guaranteed outcome.</>} />
+        question={<>Each funded action answers one cause the analysis found — a <b>payout lead</b> (Q1), a <b>location loss</b> after the walkway closure (Q2) and a <b>comp pricing change</b> (Q5). Costs use the challenge formula: quantity × (unit cost + daily recurring cost × max(0, {r.horizon_days} − lead days)). The catalogue gives prices, not results: benefits below are scenarios computed from the data, with a break-even point for each.</>} />
 
       <div className="kpis">
         <Kpi label="Total budget" value={usd(r.budget, 0)} sub={`${r.horizon_days} days from July 1, 2025`} tip="GUIDE.md §6: a pretend $100,000 for the 30 days from July 1, 2025." />
@@ -83,12 +85,15 @@ export default function Recommendations() {
         </div>
 
         <div className="table-wrap mt">
-          <table className="dt"><thead><tr><th>Action</th><th className="num">Qty</th><th className="num">Unit cost</th><th className="num">Total</th><th className="num">Days of effect</th><th>Why</th></tr></thead><tbody>
-            <tr><td className="strong">A-TECH-SHIFT<div className="small muted">{tech.name}</div></td><td className="num">{tech.quantity}</td><td className="num">{usd(tech.unit_cost, 0)}</td><td className="num">{usd(tech.total_cost, 0)}</td><td className="num">{tech.operating_days}</td><td className="wrap">Test whether more repair staffing cuts response time and downtime ({num(s3.tickets)} operations tickets, {num(s3.fault_repairs)} of them fault repairs).</td></tr>
-            <tr><td className="strong">A-INSPECT<div className="small muted">{inspect.name}</div></td><td className="num">{inspect.quantity}</td><td className="num">{usd(inspect.unit_cost, 0)}</td><td className="num">{usd(inspect.total_cost, 0)}</td><td className="num">{inspect.operating_days}</td><td className="wrap">Check the {top10.length} Q1 candidates ({inBF} in Back Forty) for faults and paytable issues before any costly move or replacement.</td></tr>
-            <tr><td className="strong">A-COMP-PILOT<div className="small muted">{pilot.name}</div></td><td className="num">{pilot.quantity}</td><td className="num">{usd(pilot.unit_cost, 0)}</td><td className="num">{usd(pilot.total_cost, 0)}</td><td className="num">{pilot.operating_days}</td><td className="wrap">Test comp redemption pricing against a randomised control group.</td></tr>
-            <tr><td className="strong">A-HOLD<div className="small muted">Preserve budget</div></td><td className="num">1</td><td className="num">{usd(0, 0)}</td><td className="num">{usd(preserved, 0)} kept</td><td className="num">—</td><td className="wrap">No evidence yet justifies a larger spend; release funds only when these tests support it.</td></tr>
-            <tr><td className="strong">Total</td><td /><td /><td className="num strong">{usd(r.budget, 0)}</td><td /><td className="small muted">{usd(invested, 0)} invested + {usd(preserved, 0)} preserved</td></tr>
+          <table className="dt"><thead><tr><th>Action</th><th className="num">Qty</th><th className="num">Unit cost</th><th className="num">Total</th><th className="num">Days of effect</th><th className="num">Break-even</th><th>Why</th></tr></thead><tbody>
+            {r.selected.map((a) => (
+              <tr key={a.action_type_id}><td className="strong">{a.action_type_id}<div className="small muted">{a.name}</div></td><td className="num">{a.quantity}</td><td className="num">{usd(a.unit_cost, 0)}</td>
+                <td className="num">{usd(a.total_cost, 0)}</td><td className="num">{a.operating_days}</td>
+                <td className="num">{Number.isFinite(plan[a.action_type_id as keyof typeof plan].break_even_pct) ? `${plan[a.action_type_id as keyof typeof plan].break_even_pct.toFixed(0)}% of full benefit` : 'n/a'}</td>
+                <td className="wrap">{why(a.action_type_id)}</td></tr>
+            ))}
+            <tr><td className="strong">A-HOLD<div className="small muted">Preserve budget</div></td><td className="num">1</td><td className="num">{usd(0, 0)}</td><td className="num">{usd(preserved, 0)} kept</td><td className="num">—</td><td /><td className="wrap">Replacements and larger spends wait for these tests: none of the evidence supports them yet.</td></tr>
+            <tr><td className="strong">Total</td><td /><td /><td className="num strong">{usd(r.budget, 0)}</td><td /><td /><td className="small muted">{usd(invested, 0)} invested + {usd(preserved, 0)} preserved</td></tr>
           </tbody></table>
         </div>
 
@@ -99,60 +104,53 @@ export default function Recommendations() {
         </div>
       </Panel>
 
-      <Callout title="Important qualifications" tone="warn">
-        <b>Downtime hours are not automatically lost revenue</b> — players can move to a nearby machine, so theo-based exposure overstates what was lost.
-        {' '}<b>Fluctuating coin-in does not prove a comp change will raise it</b> — coin-in moved between {usd(low.coin / 1e6, 2)}M and {usd(peak.coin / 1e6, 2)}M a month with no steady trend.
-        {' '}These actions are <b>hypotheses to test, not guaranteed outcomes</b>, and {r.horizon_days} days is a short window: effects after July 30 are not counted.
+      <Callout title="How to read the scenarios" tone="warn">
+        Benefits are in <b>theoretical win (expected house win)</b> or comp cost saved, over the days left after each lead time — not profit, and nothing after July 30 is counted.
+        {' '}<b>Low</b> assumes the action does nothing; <b>base</b> and <b>high</b> use effect sizes measured in the data. <b>Break-even</b> is the share of the high-scenario benefit needed to recover the cost.
+        {' '}These are hypotheses to test, not guaranteed outcomes.
       </Callout>
 
       <div className="stack mt">
-        <ActionCard i={0} a={tech} category="Downtime · repair staffing" target="Highest-volume repair shift"
-          why={<>Q3 recorded <b>{num(s3.tickets)} operations tickets</b>, of which <b>{num(s3.fault_repairs)} were fault repairs</b>, and <b>{num(s3.downtime_hours_all, 2)} downtime hours</b> in total ({num(s3.downtime_hours_fault, 2)} h from faults). A fault repair averaged <b>{s3.avg_response_fault.toFixed(2)} h</b> waiting for a technician and <b>{s3.avg_repair_fault.toFixed(2)} h</b> being repaired. An extra technician should shorten the wait.</>}
+        <ActionCard i={0} a={inspect} category="Payout settings · verify before acting" target={pi.targets.map((t) => t.machine_id).join(', ')}
+          why={<>The Q1 payout test compares each machine's hold with what its configuration predicts, using the game's own payout variance and spin count. {flagged.length ? <><b>{flagged.map((t) => `${t.machine_id} (z = ${t.z.toFixed(2)})`).join(', ')}</b> {flagged.length > 1 ? 'pass' : 'passes'} the threshold corrected for {dg.tests} machines (|z| ≥ {dg.z_flag.toFixed(2)}).</> : 'No machine passes the corrected threshold.'} The other targets are the next-lowest z-scores still on the floor; one inspection visit covers all five.</>}
           effect={<>
-            <p>Waiting for a technician is <b>{pct(ev.tech_shift_response_share, 1)}</b> of fault downtime. Even eliminating it entirely would recover at most about <b>{usd(ev.tech_shift_max_monthly_exposure, 0)}</b> of <i>estimated</i> theo exposure per 30 days — less than the {usd(tech.total_cost, 0)} cost.</p>
-            <p className="small">So this is funded as a <b>measured test</b> of whether staffing cuts response time and downtime, not as an investment expected to pay back within the horizon. The catalogue covers one technician, 8 h × 30 days.</p>
+            <ScenarioTable s={pi.scenarios} cost={pi.cost_with_downtime} costNote={`${usd(inspect.total_cost, 0)} + ${usd(pi.cost_with_downtime - inspect.total_cost, 0)} theo lost to ${inspect.downtime_minutes}-minute inspections`} />
+            <div className="table-wrap mt-s"><table className="dt"><thead><tr><th>Machine</th><th>Zone</th><th className="num">Expected / observed hold</th><th className="num">z</th><th className="num">Shortfall per day</th></tr></thead>
+              <tbody>{pi.targets.map((t) => <tr key={t.machine_id}><td className="strong">{t.machine_id}</td><td>{zn[t.zone_id]}</td><td className="num">{pct(t.exp_hold)} / {pct(t.obs_hold)}</td><td className={`num ${t.payout_verdict === 'payout anomaly lead' ? 'neg' : ''}`}>{t.z.toFixed(2)}</td><td className="num">{usd(t.daily_shortfall, 0)}</td></tr>)}</tbody></table></div>
+            <p className="small mt-s">Break-even: {pi.break_even_pct.toFixed(0)}% of the five machines' combined shortfall must be a real, fixable fault.</p>
           </>}
-          uncertainty={<>Medium. One technician on one shift may not move floor-wide averages, and repair duration ({s3.avg_repair_fault.toFixed(2)} h average) is the larger share of downtime, which staffing affects less directly.</>}
-          measure={<>For Jul 8–30 ({tech.operating_days} days), compare <b>average response time</b>, <b>repair duration</b> and <b>fault downtime hours per active machine-day</b> on the staffed shift with (a) the same shift and weekdays in the Jan–Jun baseline and (b) unchanged shifts over the same days. Success = response time on the staffed shift falls below its Jan–Jun average ({s3.avg_response_fault.toFixed(2)} h for fault repairs) while unchanged shifts do not improve similarly.</>}
-          links={[['/q3', 'Q3 maintenance']]} />
+          uncertainty={<>High for the four unflagged machines, whose gaps are within normal luck; moderate for {flagged.map((t) => t.machine_id).join(', ') || 'the flagged machine'}. Finding nothing is a valid result: it rules out payout settings before any replacement is considered. No wrongdoing is implied.</>}
+          measure={<>Record paytable and meter checks per machine. For corrected machines, compare observed hold over the rest of July with the configured hold and with each machine's Jan–Jun hold. Inspections run on the quietest forecast days ({dec.quiet_days['A-INSPECT'].map(dLabel).join(', ')}), so the {inspect.downtime_minutes}-minute downtime costs least. Success = a confirmed and corrected fault, or a documented clean result.</>}
+          links={[['/q1', 'Q1 leak check']]} />
 
-        <ActionCard i={1} a={inspect} category="Payout settings and faults · verification before larger decisions" target={`${top10.length} Q1 candidates: ${top10.map((m) => m.machine_id).join(', ')}`}
-          why={<>Q1's ranking found <b>{inBF} of {top10.length}</b> preliminary underperformers in <b>Back Forty</b>. Before spending on relocation or replacement — leasing {lease.quantity} new titles would cost {usd(lease.total_cost, 0)}, buying {buy.quantity} would cost {usd(buy.total_cost, 0)} — inspections confirm each machine's paytable and fault state.</>}
+        <ActionCard i={1} a={wayf} category="Location · restore traffic after the walkway closure" target={zn[pw.zone_id]}
+          why={<>{closure ? <>While the {pw.walkway_id} walkway was closed ({dLabel(closure.windows.during[0])}–{dLabel(closure.windows.during[1])}), {zn[pw.zone_id]} coin-in fell {signedPct(closure.zones[pw.zone_id].chg_during_pct, 1)} and its traffic {signedPct(closure.zones[pw.zone_id].traffic_chg_during_pct, 1)}. After reopening it stayed <b>{Math.abs(pw.did_after_pp).toFixed(1)} pp below</b> the rest of the floor: about {usd(pw.gap_theo_per_day, 0)} of theo per day that guests have not come back for.</> : null} Half of the Q1 candidates are only weak because they stand there.</>}
           effect={<>
-            <p>The outcome is <b>information</b>, not revenue: the catalogue states "{inspect.notes}" {aboveTheo} of {top10.length} candidates earned at or above their theoretical win, so we do not expect a payout fault. Finding none is a valid result that rules out payout settings and supports location as the cause.</p>
+            <ScenarioTable s={pw.scenarios} cost={wayf.total_cost} />
+            <p className="small mt-s">Break-even: the signs must recover {pw.break_even_pct.toFixed(0)}% of the remaining gap during the {wayf.operating_days} days after installation.</p>
           </>}
-          uncertainty={<>Low cost, low risk: {inspect.downtime_minutes} minutes of downtime per machine, scheduled in quiet hours (early-week mornings per the <Link to="/model">weekday forecast</Link>).</>}
-          measure={<>Count of <b>faults and paytable discrepancies found and corrected</b> across the {inspect.quantity} machines, then their <b>availability</b> for the rest of July compared with their own Jan–Jun availability and with uninspected Back Forty machines. Success = a clear go/no-go on whether relocating or replacing these machines is justified.</>}
-          links={[['/q1', 'Q1 candidate ranking'], ['/q2', 'Q2 Back Forty']]} />
+          uncertainty={<>Medium. Signage effects are not in the data; the gap may also be habit that fades on its own, which is why the comparison is against other zones over the same days.</>}
+          measure={<>From install (day {wayf.lead_days + 1}) to July 30, compare {zn[pw.zone_id]} entries per counter-hour and coin-in per day with its pre-closure level, net of the other zones (difference-in-differences, as in Q2). The frozen forecast shows why it is measured at zone level: the best-case effect is {dec.wayfinding_high_effect_floor_pct.toFixed(2)}% of floor coin-in, below the ~{dec.min_detectable_pct['A-WAYFINDING'].toFixed(1)}% the forecast can detect over {wayf.operating_days} days. Success = the zone's gap to the rest of the floor narrows by at least the break-even share.</>}
+          links={[['/q2', 'Q2 closure analysis']]} />
 
-        <ActionCard i={2} a={pilot} category="Comps · controlled policy test" target="Randomised treatment and control groups (comp_policy)"
-          why={<>From May 1 the points charged per comp dollar fell by about half in every tier (Q5). Average monthly comp cost moved from {usd(ev.comp_monthly_cost_janapr, 0)} (Jan–Apr) to {usd(ev.comp_monthly_cost_mayjun, 0)} (May–Jun). Floor coin-in <b>fluctuated rather than declined steadily</b>: {coinByMonth.map((c) => `${mLabel(c.m)} ${usd(c.coin / 1e6, 2)}M`).join(', ')} — {mLabel(first.m)} to {mLabel(last.m)} {pctv((last.coin / first.coin - 1) * 100, 1)}. The data cannot tell us whether cheaper comps bought extra visits; only a controlled test can.</>}
+        <ActionCard i={2} a={pilot} category="Comps · controlled pricing test" target="Randomised treatment and control groups"
+          why={<>From May 1 the points charged per comp dollar halved in every tier (Q5). Monthly comp cost moved from {usd(pp.comp_month_janapr, 0)} (Jan–Apr) to {usd(pp.comp_month_mayjun, 0)} (May–Jun). Whether cheaper comps bought extra visits cannot be read from the data: only a controlled test separates pricing from season.</>}
           effect={<>
-            <p>The treatment group gets redemption pricing restored toward the Jan–Apr level (the catalogue allows 5–20 points per comp dollar); the control group keeps current pricing. The pilot fee covers design, training and tracking; comp costs still flow through F&amp;B cost of goods.</p>
-            <p className="small">A floor-wide change (A-COMP-CHANGE, {usd(change.total_cost, 0)}) is cheaper but cannot separate the pricing effect from seasonality, and the two are mutually exclusive.</p>
+            <ScenarioTable s={pp.scenarios} cost={pilot.total_cost} />
+            <p className="small mt-s"><b>Does not pay back within {r.horizon_days} days</b> (break-even {Number.isFinite(pp.break_even_pct) ? `${pp.break_even_pct.toFixed(0)}%` : 'n/a'} of the high scenario). It is funded for the decision it informs: if reverting the May pricing floor-wide is right, it is worth up to <b>{usd(pp.annual_policy_value, 0)} a year</b> in comp cost — outside this horizon and not counted above.</p>
           </>}
           uncertainty={<>Medium. {pilot.operating_days} days may be too short to see changes in visit frequency, and guests may react to less generous pricing. The pilot does not target or encourage heavy losers to play more.</>}
-          measure={<>Randomise eligible carded players, stratified by tier, into treatment and control. Compare <b>incremental net revenue</b> (theo minus comp cost per player) and <b>repeat visits</b> (trips per player) between the groups over the {pilot.operating_days} days. Success = treatment comp cost per $ theo falls with no meaningful drop in visits or theo per player versus control.</>}
-          links={[['/q5', 'Q5 loyalty'], ['/q2', 'Q2 demand']]} />
+          measure={<>Randomise eligible carded players, stratified by tier, into treatment ({pct(pp.treatment_share, 0)}) and control. Compare comp cost per $ of theo and trips per player between the groups over the {pilot.operating_days} days. Success = treatment comp cost per $ theo falls with no meaningful drop in visits or theo per player versus control.</>}
+          links={[['/q5', 'Q5 loyalty']]} />
       </div>
-
-      <Panel className="mt" title="How we will know it worked" sub={`${r.horizon_days}-day evaluation, July 1–30 2025, against Jan–Jun baselines and control groups`}>
-        <div className="table-wrap"><table className="dt"><thead><tr><th>Action</th><th>Measure</th><th>Baseline</th><th>Comparison group</th></tr></thead><tbody>
-          <tr><td className="strong">A-TECH-SHIFT</td><td className="wrap">Response time, repair duration, fault downtime hours</td><td className="wrap">Same shift and weekdays, Jan–Jun</td><td className="wrap">Unchanged shifts over the same days</td></tr>
-          <tr><td className="strong">A-INSPECT</td><td className="wrap">Faults and paytable issues found and corrected; later availability</td><td className="wrap">The machines' own Jan–Jun availability</td><td className="wrap">Uninspected Back Forty machines</td></tr>
-          <tr><td className="strong">A-COMP-PILOT</td><td className="wrap">Incremental net revenue per player; repeat visits</td><td className="wrap">Jan–Jun comp cost and trips per player</td><td className="wrap">Randomised control group on current pricing</td></tr>
-          <tr><td className="strong">A-HOLD</td><td className="wrap">{usd(preserved, 0)} released only when a test supports another investment</td><td className="wrap">—</td><td className="wrap">—</td></tr>
-        </tbody></table></div>
-        <p className="small muted mt-s">Each test runs only after its catalogue lead time. Floor-level coin-in is judged against the <Link to="/model">frozen forecast</Link> rather than against June alone, because monthly coin-in fluctuated.</p>
-      </Panel>
 
       <Panel className="mt" title="Considered but not funded" sub={`Why ${usd(preserved, 0)} is preserved`}>
         <div className="table-wrap"><table className="dt"><thead><tr><th>Action</th><th className="num">Cost (as specified)</th><th>Reason not funded</th></tr></thead><tbody>
-          <tr><td className="strong">{buy.name} × {buy.quantity}</td><td className="num">{usd(buy.total_cost, 0)}</td><td className="wrap">Exceeds the budget on its own (capital charged in full), and the evidence points to location rather than the machines.</td></tr>
-          <tr><td className="strong">{lease.name} × {lease.quantity}</td><td className="num">{usd(lease.total_cost, 0)}</td><td className="wrap">{inBF}/{top10.length} candidates share one low-traffic zone and {aboveTheo}/{top10.length} earned at least theo; a new title in the same spot would face the same footfall. Revisit after the inspections.</td></tr>
-          <tr><td className="strong">{wf.name}</td><td className="num">{usd(wf.total_cost, 0)}</td><td className="wrap">Location is the leading explanation for Back Forty, but only {MAX_ACTION_TYPES} action types are allowed. Inspecting first rules out machine causes before spending on location.</td></tr>
-          <tr><td className="strong">{pm.name}</td><td className="num">{usd(pm.total_cost, 0)}</td><td className="wrap">Ridgeline faults are concentrated (Q3), but the {MAX_ACTION_TYPES}-type limit applies; the technician test addresses downtime this month. A candidate for the next horizon.</td></tr>
-          <tr><td className="strong">{promo.name}</td><td className="num">{usd(promo.total_cost, 0)}</td><td className="wrap">The forecast's event coefficient (+{usd(fc.data.coef.event, 0)}/day coin-in on known citywide event days) is associative, not causal, and July has no comparable event in the data.</td></tr>
+          <tr><td className="strong">{tech.name}</td><td className="num">{usd(tech.total_cost, 0)}</td><td className="wrap">Waiting for a technician is {pct(ev.tech_shift_response_share, 1)} of fault downtime ({num(s3.downtime_hours_fault, 0)} h in Jan–Jun). Removing all of it would recover at most {usd(ev.tech_shift_max_monthly_exposure, 0)} of estimated theo per 30 days — less than the cost.</td></tr>
+          <tr><td className="strong">{pm.name}</td><td className="num">{usd(pm.total_cost, 0)}</td><td className="wrap">Ridgeline faults are concentrated (Q3), but it breaks even only if faults fall {Number(ev.preventive_breakeven_reduction_pct).toFixed(0)}% within {pm.operating_days} days; the 3-type limit goes to actions with clearer causes. A candidate for the next horizon.</td></tr>
+          <tr><td className="strong">{lease.name} × {lease.quantity}</td><td className="num">{usd(lease.total_cost, 0)}</td><td className="wrap">{dg.candidates_location} of the 10 candidates are ordinary for their zone, and none is a payout outlier; a new title in the same spot would face the same footfall. Revisit after the signage test.</td></tr>
+          <tr><td className="strong">{buy.name} × {buy.quantity}</td><td className="num">{usd(buy.total_cost, 0)}</td><td className="wrap">Exceeds the budget on its own (capital charged in full).</td></tr>
+          <tr><td className="strong">{promo.name}</td><td className="num">{usd(promo.total_cost, 0)}</td><td className="wrap">The forecast's event coefficient (+{usd(fc.data.coef.event, 0)}/day on known citywide event days) is associative, not causal, and July has no comparable event.</td></tr>
           <tr><td className="strong">{change.name}</td><td className="num">{usd(change.total_cost, 0)}</td><td className="wrap">Mutually exclusive with the pilot (same comp_policy group) and cannot separate the pricing effect from seasonality.</td></tr>
         </tbody></table></div>
       </Panel>
@@ -170,6 +168,19 @@ export default function Recommendations() {
           ]} />
       </Panel>
     </div>
+  )
+}
+
+function ScenarioTable({ s, cost, costNote }: { s: Scenarios; cost: number; costNote?: string }) {
+  return (
+    <div className="table-wrap"><table className="dt"><thead><tr><th>Scenario</th><th className="num">Benefit</th><th className="num">Net</th><th className="num">ROI</th></tr></thead>
+      <tbody>{(['low', 'base', 'high'] as const).map((k) => (
+        <tr key={k}><td><span className="strong">{k[0].toUpperCase() + k.slice(1)}</span><div className="small muted">{s[k].label}</div></td>
+          <td className="num">{usd(s[k].benefit, 0)}</td><td className={`num ${s[k].net >= 0 ? 'pos' : 'neg'}`}>{usd(s[k].net, 0)}</td>
+          <td className={`num ${(s[k].roi_pct ?? 0) >= 0 ? 'pos' : 'neg'}`}>{s[k].roi_pct === null ? '—' : `${s[k].roi_pct > 0 ? '+' : ''}${s[k].roi_pct}%`}</td></tr>
+      ))}</tbody>
+      <tfoot><tr><td colSpan={4} className="small muted">Cost {usd(cost, 0)}{costNote ? ` (${costNote})` : ''}</td></tr></tfoot>
+    </table></div>
   )
 }
 
