@@ -71,7 +71,15 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5179 and click **Check AML** in the sidebar to open CASINOGUARD. To point the button somewhere else, such as a hosted CASINOGUARD, copy `Dashboard-Royale/casinoguard/.env.example` to `.env` and set `VITE_AML_URL`.
+**4. Dashboard Royale AI assistant (optional)** — a local chatbot that answers questions about Q1–Q6 from the verified findings, using Ollama with `qwen2.5:3b` (no paid APIs). One-time setup: `brew install ollama`, `brew services start ollama`, `ollama pull qwen2.5:3b`.
+
+```bash
+cd Dashboard-Royale/assistant
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python -m uvicorn app:app --port 8100
+```
+
+Open http://localhost:5179 and click **Check AML** in the sidebar to open CASINOGUARD, or the **AI** button in the bottom-right corner to ask about the findings. Details: [Dashboard-Royale/assistant/README.md](Dashboard-Royale/assistant/README.md). To point the button somewhere else, such as a hosted CASINOGUARD, copy `Dashboard-Royale/casinoguard/.env.example` to `.env` and set `VITE_AML_URL`.
 
 ## Databricks pipeline (CASINOGUARD)
 

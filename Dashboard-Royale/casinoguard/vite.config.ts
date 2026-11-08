@@ -6,5 +6,8 @@ export default defineConfig({
   base: './',
   plugins: [react()],
   build: { chunkSizeWarningLimit: 1200 },
-  server: { port: 5179 },
+  server: {
+    port: 5179,
+    proxy: { '/api/assistant': 'http://127.0.0.1:8100' },
+  },
 })

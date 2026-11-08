@@ -1,0 +1,367 @@
+{
+  "generated_from": "casinoguard/public/data/*.json and Methodology.tsx verified claims",
+  "data_release": "0.9.0-draft",
+  "entries": [
+    {
+      "id": "overview",
+      "topic": "Overview",
+      "title": "Project overview and headline figures",
+      "page": "/",
+      "keywords": [
+        "overview",
+        "summary",
+        "gilded ace",
+        "casino",
+        "headline",
+        "kpi",
+        "data"
+      ],
+      "content": "Dashboard Royale analyses The Gilded Ace, a fictional 300-machine casino, for January\u2013June 2025 using synthetic data (data release 0.9.0-draft). Tracked casino net $15,585,460.60; tracked wagering $163,804,869.65; tracked payouts $148,219,409.05. Property coin-in $248,905,219.25, house win $23,638,155.10, theoretical win $23,545,364.48. 1,226 operations tickets (1,207 fault repairs), 5,021.08 downtime hours. Comp cost $190,669.30 (face value $682,749.50). 82 of 82 verification checks pass.",
+      "source": "overview.json, meta.json"
+    },
+    {
+      "id": "q1-answer",
+      "topic": "Q1",
+      "title": "Q1: Which machines are underperforming?",
+      "page": "/q1",
+      "keywords": [
+        "q1",
+        "underperforming",
+        "machines",
+        "candidates",
+        "bottom",
+        "back forty",
+        "location",
+        "ranking"
+      ],
+      "content": "Q1 asks which machines underperform. The exposure-adjusted ranking compares each machine with same-configuration peers. It produced 10 preliminary candidates (not replacement orders): M-1014, M-1008, M-1045, M-1040, M-1230, M-1048, M-1265, M-1221, M-1227, M-1082. 10 of 10 are in the Back Forty zone. Back Forty earns $11.71 theoretical win per available machine hour versus $19.01 elsewhere, at 25.4% occupancy versus 38.5%. Conclusion: location, not the machines themselves, is the leading explanation.",
+      "source": "q1.json, recommendations.json evidence"
+    },
+    {
+      "id": "q2-answer",
+      "topic": "Q2",
+      "title": "Q2: How did floor demand change?",
+      "page": "/q2",
+      "keywords": [
+        "q2",
+        "demand",
+        "coin-in",
+        "trend",
+        "zones",
+        "monthly",
+        "traffic",
+        "decline",
+        "change"
+      ],
+      "content": "Q2 asks how floor demand changed. Monthly floor coin-in fluctuated rather than declining steadily: Jan $41.68M, Feb $39.58M, Mar $43.65M, Apr $41.29M, May $42.98M, Jun $39.73M. The highest month was Mar and the lowest Feb; January to June changed -4.7%. Change in daily coin-in per zone, January to June: Back Forty -10.1%; Bar Row -5.6%; Main Entrance -0.7%; Garage Entrance -5.9%; High-Limit Room -11.2%; Hotel Corridor -5.9%; Center Pit +10.5%. Daily foot traffic and coin-in are strongly correlated in Back Forty (r = 0.979), which is association, not proof that traffic causes play.",
+      "source": "q2.json zone_month, traffic_demand_corr"
+    },
+    {
+      "id": "q3-answer",
+      "topic": "Q3",
+      "title": "Q3: How much play was lost to downtime?",
+      "page": "/q3",
+      "keywords": [
+        "q3",
+        "downtime",
+        "maintenance",
+        "repairs",
+        "tickets",
+        "faults",
+        "technician",
+        "ridgeline",
+        "exposure"
+      ],
+      "content": "Q3 covers maintenance and downtime. There were 1,226 operations tickets, of which 1,207 were fault repairs; the others were installs, moves, scheduled maintenance and retirements. Total downtime was 5,021.08 hours (4,934.08 hours from fault repairs). An average fault repair waited 1.14 hours for a technician and took 2.95 hours to repair. Direct fault repair cost was $212,945.21. Estimated theoretical-win exposure from fault downtime was $88,346.72 \u2014 an upper-bound estimate, not actual lost revenue, because players can move to other machines. By manufacturer: Ridgeline 7.23 fault repairs per machine (680 repairs, 2,747 downtime hours, 94 machines); Northwind 3.02 fault repairs per machine (305 repairs, 1,288 downtime hours, 101 machines); Halcyon 1.93 fault repairs per machine (222 repairs, 899 downtime hours, 115 machines).",
+      "source": "q3.json summary, recommendations.json evidence"
+    },
+    {
+      "id": "q4-answer",
+      "topic": "Q4",
+      "title": "Q4: What did tracked players wager, get back and net?",
+      "page": "/q4",
+      "keywords": [
+        "q4",
+        "players",
+        "wager",
+        "payout",
+        "net",
+        "losses",
+        "concentration",
+        "gini",
+        "winners",
+        "losers"
+      ],
+      "content": "Q4 covers tracked (loyalty-card) players, January\u2013June. 113,890 players wagered $163,804,869.65 and were paid $148,219,409.05, a casino net of $15,585,460.60 (theoretical win $15,485,020.98). 80,992 players lost, 15,504 won and 17,394 broke even. Gross losses were $20,939,424.55 and winnings paid $5,353,963.95. Losses are concentrated: the top 1% of losing players account for 15.73% of gross losses, the top 5% for 40.73%, the top 10% for 52.84% and the top 20% for 66.52%. Gini coefficient of wagering 0.7536; of losses 0.6237.",
+      "source": "q4.json ranges (Jan\u2013Jun)"
+    },
+    {
+      "id": "q5-answer",
+      "topic": "Q5",
+      "title": "Q5: What did comps cost, and did anything change?",
+      "page": "/q5",
+      "keywords": [
+        "q5",
+        "comps",
+        "loyalty",
+        "cost",
+        "points",
+        "redemption",
+        "face value",
+        "tier",
+        "may"
+      ],
+      "content": "Q5 covers the loyalty comp program. Actual economic comp cost was $190,669.30 against a face value of $682,749.50 (cost is 27.9% of face value), from 59,361 redemptions. From May 1 the points charged per comp dollar roughly halved in every tier (average points per face dollar, Jan\u2013Apr to May\u2013Jun: Base 15.0 to 7.0; Gold 12.0 to 5.6; Platinum 9.0 to 4.2). Average monthly comp cost rose from $30,812.60 (Jan\u2013Apr) to $33,709.45 (May\u2013Jun). Comp cost as a share of tracked theoretical win went from 1.11% in January to 1.32% in June. The data does not show whether the change was deliberate or whether it brought extra visits.",
+      "source": "q5.json summary, monthly, points_per_dollar_by_tier"
+    },
+    {
+      "id": "q6-plan",
+      "topic": "Q6",
+      "title": "Q6: Which actions would we fund with $100,000?",
+      "page": "/q6",
+      "keywords": [
+        "q6",
+        "budget",
+        "100,000",
+        "fund",
+        "actions",
+        "allocation",
+        "plan",
+        "invest",
+        "spend",
+        "hold",
+        "recommendation"
+      ],
+      "content": "Q6 asks which actions to fund with $100,000 for the 30 days from July 1, 2025. The challenge allows up to 3 action types from the action catalogue; keeping money (A-HOLD, $0 unit cost) does not use a slot. The plan: A-TECH-SHIFT (Add one technician to a shift for 30 days) quantity 1 at $11,520 each = $11,520, lead time 7 days, 23 days of effect; A-INSPECT (Machine inspection and paytable verification) quantity 10 at $1,200 each = $12,000, lead time 1 days, 29 days of effect; A-COMP-PILOT (Comp policy pilot with control group) quantity 1 at $4,000 each = $4,000, lead time 5 days, 25 days of effect. Total invested $27,520; preserved (A-HOLD) $72,480. All quantities are within catalogue limits, and only A-COMP-PILOT uses an incompatibility group (comp_policy).",
+      "source": "recommendations.json (from action_catalog)"
+    },
+    {
+      "id": "q6-why",
+      "topic": "Q6",
+      "title": "Q6: Why these actions were chosen",
+      "page": "/q6",
+      "keywords": [
+        "q6",
+        "why",
+        "reason",
+        "technician",
+        "tech shift",
+        "inspect",
+        "inspection",
+        "comp pilot",
+        "rationale"
+      ],
+      "content": "A-TECH-SHIFT adds one technician to a shift for 30 days to test whether more repair staffing cuts response time and downtime (1,226 operations tickets, 1,207 fault repairs, 5,021.08 downtime hours). Waiting for a technician is 27.9% of fault downtime, so even eliminating it would recover at most about $4,089 of estimated exposure per 30 days, less than its cost: it is a measured test, not an investment expected to pay back. A-INSPECT checks the 10 Q1 candidates (10 in Back Forty) for faults and paytable issues before any costly relocation or replacement; the outcome is information, not a guaranteed finding. A-COMP-PILOT tests comp redemption pricing (which halved from May 1, see Q5) against a randomised control group. The remaining $72,480 is held until evidence supports more spending.",
+      "source": "recommendations.json, q3.json, q1.json"
+    },
+    {
+      "id": "q6-measure",
+      "topic": "Q6",
+      "title": "Q6: How we would know the actions worked",
+      "page": "/q6",
+      "keywords": [
+        "q6",
+        "measure",
+        "success",
+        "evaluation",
+        "metrics",
+        "control group",
+        "baseline",
+        "worked",
+        "kpi"
+      ],
+      "content": "Each action is evaluated over the 30-day horizon against a January\u2013June baseline and a comparison group. A-TECH-SHIFT: average response time, repair duration and fault downtime hours on the staffed shift versus the same shift in the Jan\u2013Jun baseline and versus unchanged shifts. A-INSPECT: number of faults and paytable issues found and corrected, then availability versus uninspected Back Forty machines. A-COMP-PILOT: incremental net revenue (theoretical win minus comp cost) and repeat visits per player, treatment versus a randomised control group stratified by tier. A-HOLD: funds released only when a test supports another investment. Qualifications: downtime hours are not automatically lost revenue; fluctuating coin-in does not prove a comp change will raise it; these are hypotheses to test, not guaranteed outcomes.",
+      "source": "Q6 page"
+    },
+    {
+      "id": "q6-not-funded",
+      "topic": "Q6",
+      "title": "Q6: Actions considered but not funded",
+      "page": "/q6",
+      "keywords": [
+        "q6",
+        "not funded",
+        "rejected",
+        "alternatives",
+        "replace",
+        "wayfinding",
+        "preventive",
+        "promotion"
+      ],
+      "content": "Considered but not funded: A-REPLACE-BUY (Replace a machine with a purchased new title, $220,000); A-REPLACE-LEASE (Replace a machine with a leased new title, $33,800); A-WAYFINDING (Wayfinding and signage refresh for a zone, $7,500); A-PREVENTIVE (Preventive maintenance sweep for one manufacturer, $9,000); A-COMP-CHANGE (Change comp redemption rate floor-wide, $1,500); A-PROMO (Property promotion weekend, $15,000). Replacing machines exceeds the budget or would put new titles in the same low-traffic location; only 3 action types are allowed; a promotion's benefit is not established causally; a floor-wide comp change is mutually exclusive with the pilot and cannot separate the pricing effect from seasonality.",
+      "source": "recommendations.json alternatives"
+    },
+    {
+      "id": "forecast",
+      "topic": "Forecast",
+      "title": "Forecast model of daily coin-in",
+      "page": "/model",
+      "keywords": [
+        "forecast",
+        "model",
+        "machine learning",
+        "ml",
+        "regression",
+        "mae",
+        "holdout",
+        "prediction"
+      ],
+      "content": "A daily coin-in forecast was trained on 2025-01-01 to 2025-04-30 and tested on 2025-05-01 to 2025-06-30. Holdout error: Baseline 1 \u2014 training mean: MAE $218,258; Baseline 2 \u2014 weekday average: MAE $68,699; Weekday avg + AR(1) residual: MAE $68,624; Calendar regression (weekday + holiday + known events + trend): MAE $65,187. The calendar regression improves on the weekday average by $3,511 MAE, but the 95% confidence interval ($-4,530 to $16,591) includes zero, so the gain is not statistically conclusive. It is used for scheduling and as a measurement baseline, not to justify spending.",
+      "source": "forecast.json"
+    },
+    {
+      "id": "claim-1",
+      "topic": "Q1",
+      "title": "Verified claim: The ten preliminary underperformers are all in Back Forty.",
+      "page": "/q1",
+      "keywords": [
+        "verified",
+        "claim",
+        "evidence",
+        "methodology"
+      ],
+      "content": "Claim: The ten preliminary underperformers are all in Back Forty. Evidence used: prepared_daily_view \u2192 finalize_bottom_10 scoring (src/lib/q1.ts). Result: 10/10 in Z-B40; list reproduced exactly. Alternative explanation considered: The machines themselves are weak titles. Limitation: Score compares within config, not zone.",
+      "source": "Methodology page \u2014 verified claims"
+    },
+    {
+      "id": "claim-2",
+      "topic": "Q1",
+      "title": "Verified claim: Low earnings of the candidates are not explained by bad luck.",
+      "page": "/q1",
+      "keywords": [
+        "verified",
+        "claim",
+        "evidence",
+        "methodology"
+      ],
+      "content": "Claim: Low earnings of the candidates are not explained by bad luck. Evidence used: \u03a3 luck_residual_usd per machine. Result: 9 of 10 earned \u2265 theo over Jan\u2013Jun. Alternative explanation considered: High-volatility variance. Limitation: Six months is short for high-volatility games.",
+      "source": "Methodology page \u2014 verified claims"
+    },
+    {
+      "id": "claim-3",
+      "topic": "Q2",
+      "title": "Verified claim: Back Forty demand fell with its foot traffic.",
+      "page": "/q2",
+      "keywords": [
+        "verified",
+        "claim",
+        "evidence",
+        "methodology"
+      ],
+      "content": "Claim: Back Forty demand fell with its foot traffic. Evidence used: zone_month + zone_traffic_hourly. Result: Coin-in/day \u221210.1%, entries/hr \u221210.3% Jan\u2192Jun; daily r = 0.979. Alternative explanation considered: Seasonality or citywide visitor decline. Limitation: Entries \u2260 visitors; correlation shares weekly cycle.",
+      "source": "Methodology page \u2014 verified claims"
+    },
+    {
+      "id": "claim-4",
+      "topic": "Q3",
+      "title": "Verified claim: Ridgeline machines are the main source of downtime.",
+      "page": "/q3",
+      "keywords": [
+        "verified",
+        "claim",
+        "evidence",
+        "methodology"
+      ],
+      "content": "Claim: Ridgeline machines are the main source of downtime. Evidence used: operations \u22c8 machines, fault repairs per machine. Result: 7.23 repairs/machine vs 3.02 and 1.93. Alternative explanation considered: Ridgeline machines are older or busier. Limitation: Age and usage not controlled.",
+      "source": "Methodology page \u2014 verified claims"
+    },
+    {
+      "id": "claim-5",
+      "topic": "Q3",
+      "title": "Verified claim: Fault downtime exposed \u2248 $88k of theo over six months.",
+      "page": "/q3",
+      "keywords": [
+        "verified",
+        "claim",
+        "evidence",
+        "methodology"
+      ],
+      "content": "Claim: Fault downtime exposed \u2248 $88k of theo over six months. Evidence used: downtime \u00d7 machine theo/available hr. Result: $88,346.72 (estimate). Alternative explanation considered: Players switch to other machines. Limitation: Upper bound; not actual lost revenue.",
+      "source": "Methodology page \u2014 verified claims"
+    },
+    {
+      "id": "claim-6",
+      "topic": "Q6",
+      "title": "Verified claim: An extra technician cannot pay back in 30 days.",
+      "page": "/recommendations",
+      "keywords": [
+        "verified",
+        "claim",
+        "evidence",
+        "methodology"
+      ],
+      "content": "Claim: An extra technician cannot pay back in 30 days. Evidence used: response share of fault downtime. Result: 27.9% \u2192 \u2264 $4,089 exposure / 30 days < $11,520. Alternative explanation considered: Faster response shortens repair too. Limitation: Ignores staff-coverage side benefits.",
+      "source": "Methodology page \u2014 verified claims"
+    },
+    {
+      "id": "claim-7",
+      "topic": "Q4",
+      "title": "Verified claim: Tracked casino net was $15,585,460.60.",
+      "page": "/q4",
+      "keywords": [
+        "verified",
+        "claim",
+        "evidence",
+        "methodology"
+      ],
+      "content": "Claim: Tracked casino net was $15,585,460.60. Evidence used: \u03a3 coin-in \u2212 \u03a3 payout, player_period. Result: Matches; reconciles to gross losses \u2212 winnings. Alternative explanation considered: \u2014. Limitation: Carded play only.",
+      "source": "Methodology page \u2014 verified claims"
+    },
+    {
+      "id": "claim-8",
+      "topic": "Q4",
+      "title": "Verified claim: Losses are highly concentrated.",
+      "page": "/q4",
+      "keywords": [
+        "verified",
+        "claim",
+        "evidence",
+        "methodology"
+      ],
+      "content": "Claim: Losses are highly concentrated. Evidence used: ranked per-player casino net. Result: Top 5% of losers = 40.73% of gross losses. Alternative explanation considered: A few lucky/unlucky sessions. Limitation: Within-period netting.",
+      "source": "Methodology page \u2014 verified claims"
+    },
+    {
+      "id": "claim-9",
+      "topic": "Q5",
+      "title": "Verified claim: Comp cost reconciles across three sources.",
+      "page": "/q5",
+      "keywords": [
+        "verified",
+        "claim",
+        "evidence",
+        "methodology"
+      ],
+      "content": "Claim: Comp cost reconciles across three sources. Evidence used: player_period vs property_day vs loyalty_ledger. Result: $190,669.30 / $682,749.50 in all three. Alternative explanation considered: \u2014. Limitation: Comp cost already inside F&B COGS.",
+      "source": "Methodology page \u2014 verified claims"
+    },
+    {
+      "id": "claim-10",
+      "topic": "Q5",
+      "title": "Verified claim: Points charged per comp dollar halved on May 1.",
+      "page": "/q5",
+      "keywords": [
+        "verified",
+        "claim",
+        "evidence",
+        "methodology"
+      ],
+      "content": "Claim: Points charged per comp dollar halved on May 1. Evidence used: ledger redeems by gaming day, tier, benefit. Result: Base 15.0\u21927.0, Gold 12.0\u21925.6, Platinum 9.0\u21924.2. Alternative explanation considered: Tier mix shift (ruled out: every tier halved). Limitation: No policy record; cause not attributed.",
+      "source": "Methodology page \u2014 verified claims"
+    },
+    {
+      "id": "claim-11",
+      "topic": "Forecast",
+      "title": "Verified claim: A calendar model forecasts coin-in slightly better than a weekday average.",
+      "page": "/model",
+      "keywords": [
+        "verified",
+        "claim",
+        "evidence",
+        "methodology"
+      ],
+      "content": "Claim: A calendar model forecasts coin-in slightly better than a weekday average. Evidence used: Jan\u2013Apr train, May\u2013Jun holdout. Result: MAE $65,187 vs $68,699; CI includes 0. Alternative explanation considered: Holdout noise. Limitation: Not statistically conclusive.",
+      "source": "Methodology page \u2014 verified claims"
+    }
+  ]
+}

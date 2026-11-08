@@ -11,6 +11,7 @@ import Q5 from './pages/Q5'
 import Recommendations from './pages/Recommendations'
 import Methodology from './pages/Methodology'
 import Model from './pages/Model'
+import { AssistantChat } from './components/AssistantChat'
 
 export const NAV = [
   { to: '/', key: '◆', label: 'Overview', group: 'Executive' },
@@ -126,6 +127,7 @@ function Shell() {
           </Routes>
         </main>
       </div>
+      <AssistantChat />
     </div>
   )
 }
