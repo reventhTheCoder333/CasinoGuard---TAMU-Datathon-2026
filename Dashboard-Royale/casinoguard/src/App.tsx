@@ -85,6 +85,15 @@ function Shell() {
             ]
           })}
         </nav>
+        <a
+          className="btn gold"
+          href={import.meta.env.VITE_AML_URL || 'http://localhost:5173'}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ margin: '12px 16px', textAlign: 'center', textDecoration: 'none' }}
+        >
+          Check AML
+        </a>
         <div className="sidebar-foot">
           Fictional casino · synthetic data<br />
           Dashboard Royale · TAMU Datathon
