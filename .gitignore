@@ -1,0 +1,25 @@
+# Secrets: never commit real credentials. Keep the .env.example files.
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+CASINOGUARD/path/
+
+# Node and builds
+node_modules/
+dist/
+
+# Local tooling and OS files
+.claude/
+.DS_Store
+
+# Generated duplicates
+Dashboard-Royale/data/**/*.csv
+CASINOGUARD/transactions.csv
+CASINOGUARD/accounts.csv

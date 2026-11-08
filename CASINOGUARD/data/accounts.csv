@@ -1,0 +1,5 @@
+account,phone,email,payment_card
+LINK_A,555-1111,linka@example.com,CARD-101
+LINK_B,555-1111,linkb@example.com,CARD-101
+LINK_C,555-2222,linkc@example.com,CARD-202
+NORMAL_ACCOUNT,555-3333,normal@example.com,CARD-303
