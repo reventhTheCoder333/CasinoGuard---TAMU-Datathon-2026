@@ -31,12 +31,12 @@ export function TopBar({
   return (
     <header className="topbar">
       <div className="brand">
-        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-          <path fill="#3987e5" d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5z" />
-          <path fill="none" stroke="#0b0e14" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" d="m8.5 12 2.5 2.5 4.5-5" />
-        </svg>
-        <span className="wordmark">CASINOGUARD</span>
-        <span className="brand-sub">Financial intelligence</span>
+        {/* Dashboard Royale's logo asset (public/favicon.svg), shared by both apps */}
+        <img src="./favicon.svg" width={30} height={30} alt="" />
+        <div className="brand-text">
+          <span className="brand-name">CASINOGUARD</span>
+          <span className="brand-sub">AML intelligence · The Gilded Ace</span>
+        </div>
       </div>
 
       <nav className="segmented view-switch" aria-label="Pages">

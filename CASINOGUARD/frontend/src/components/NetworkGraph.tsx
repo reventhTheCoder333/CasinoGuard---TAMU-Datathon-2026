@@ -269,7 +269,7 @@ export function NetworkGraph({ graph, alerts, selectedAlert, freshAlerts, pulses
 
       if (wantsLabel && !dimmed) {
         const fontSize = Math.max(9.5 / scale, 2.2);
-        ctx.font = `500 ${fontSize}px "JetBrains Mono Variable", monospace`;
+        ctx.font = `500 ${fontSize}px ui-monospace, SFMono-Regular, Menlo, monospace`;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
         ctx.fillStyle = flagged || highlight ? "#d9dce3" : "#8a93a3";

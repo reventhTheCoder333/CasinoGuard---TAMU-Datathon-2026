@@ -1,0 +1,304 @@
+/* =====================================================================
+   Dashboard Royale design system, shared by CASINOGUARD.
+
+   SECTION A is copied verbatim from Dashboard-Royale/casinoguard/src/index.css
+   (base tokens, premium glass tokens, page background and the no-blur
+   fallback), so both apps use the same palette, gold, radii, motion and
+   background. Keep it in sync with that file rather than editing it here.
+
+   SECTION B points CASINOGUARD's own class names at those tokens and at
+   Dashboard Royale's component rules (glass cards, .btn, .seg, table.dt,
+   .badge, .callout, .chart-tip, nav), keeping the AML workflow markup intact.
+   Gold is the accent; red, yellow and green are reserved for AML status.
+   ===================================================================== */
+
+/* ---------- SECTION A · verbatim from Dashboard Royale ---------- */
+:root {
+  color-scheme: dark;
+  --bg: #0d1016;
+  --surface-1: #151922;
+  --surface-2: #1b2029;
+  --surface-3: #232935;
+  --hairline: #2a303c;
+  --hairline-strong: #3a4250;
+  --text-primary: #eceae4;
+  --text-secondary: #b5b3ab;
+  --text-muted: #858479;
+  --gold: #d4b169;
+  --gold-soft: rgba(212, 177, 105, 0.12);
+  --gold-line: rgba(212, 177, 105, 0.35);
+
+  /* categorical series (validated dark steps, fixed order) */
+  --s1: #3987e5;
+  --s2: #d95926;
+  --s3: #199e70;
+  --s4: #c98500;
+  --s5: #d55181;
+  --s6: #008300;
+  --s7: #9085e9;
+
+  /* status (reserved) */
+  --good: #0ca30c;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --sidebar-w: 248px;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+:root {
+  --bg: #070a12;
+  --glass: rgba(20, 27, 43, 0.56);
+  --glass-strong: rgba(17, 23, 37, 0.86);
+  --glass-hover: rgba(26, 34, 53, 0.64);
+  --glass-border: rgba(255, 255, 255, 0.075);
+  --glass-border-hover: rgba(255, 255, 255, 0.16);
+  --glass-shadow: 0 1px 0 rgba(255, 255, 255, 0.035) inset, 0 12px 32px -12px rgba(0, 0, 0, 0.55);
+  --glass-shadow-hover: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 18px 44px -14px rgba(0, 0, 0, 0.65);
+  --blur: blur(18px) saturate(140%);
+
+  --surface-1: var(--glass);
+  --surface-2: rgba(30, 38, 58, 0.55);
+  --surface-3: rgba(44, 53, 76, 0.6);
+  --hairline: rgba(255, 255, 255, 0.07);
+  --hairline-strong: rgba(255, 255, 255, 0.13);
+
+  /* Semantic states (validated status steps; text tints for legibility) */
+  --healthy: #0ca30c;  --healthy-text: #5fd96f;  --healthy-soft: rgba(12, 163, 12, 0.12);
+  --caution: #fab219;  --caution-text: #fcc94d;  --caution-soft: rgba(250, 178, 25, 0.1);
+  --critical-text: #f07c7c;                       --critical-soft: rgba(208, 59, 59, 0.12);
+
+  --radius: 16px;
+  --radius-sm: 10px;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+body {
+  background:
+    radial-gradient(1100px 760px at 12% -12%, rgba(57, 135, 229, 0.13), transparent 62%),
+    radial-gradient(900px 640px at 105% 2%, rgba(212, 177, 105, 0.07), transparent 58%),
+    radial-gradient(800px 700px at 60% 120%, rgba(144, 133, 233, 0.07), transparent 60%),
+    linear-gradient(180deg, #0a0f1b 0%, #070a12 55%, #06080f 100%);
+  background-attachment: fixed;
+}
+h1 { font-size: 28px; letter-spacing: -0.02em; line-height: 1.2; }
+h2 { font-size: 17px; letter-spacing: -0.012em; }
+p { line-height: 1.6; }
+:focus-visible { outline: 2px solid var(--gold-line); outline-offset: 2px; border-radius: 6px; }
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root { --glass: rgba(20, 27, 43, 0.94); --glass-strong: rgba(17, 23, 37, 0.98); }
+}
+
+/* ---------- SECTION B · CASINOGUARD mapped onto the shared system ---------- */
+
+/* Token aliases: CASINOGUARD's variable names resolve to Dashboard Royale's tokens. */
+:root {
+  --panel: var(--glass);
+  --panel-raised: rgba(255, 255, 255, 0.035);
+  --hover: rgba(255, 255, 255, 0.06);
+  --border: var(--glass-border);
+  --border-strong: var(--glass-border-hover);
+  --text: var(--text-primary);
+  --text-2: var(--text-secondary);
+  --text-3: var(--text-muted);
+  --accent: var(--gold);
+  --accent-soft: var(--gold-soft);
+  --accent-line: var(--gold-line);
+  --sans: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Typography (Dashboard Royale :root font, body colour and code style) */
+body { color: var(--text-primary); font: 14px/1.5 var(--sans); font-feature-settings: normal; }
+code, .mono { font-family: var(--mono); font-size: 12.5px; }
+
+/* ---------- Top bar and brand (Dashboard Royale .topbar / .brand) ---------- */
+.topbar {
+  background: rgba(8, 12, 21, 0.62); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  border-bottom: 1px solid var(--glass-border); padding: 14px 44px; gap: 18px; margin-bottom: 24px;
+}
+.brand { gap: 10px; }
+.brand img { display: block; flex: none; }
+.brand-text { display: flex; flex-direction: column; }
+.brand-name, .wordmark { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 22px; font-weight: 600; letter-spacing: 0.08em; color: var(--gold); line-height: 1; }
+.brand-sub { font-size: 11px; color: var(--text-muted); letter-spacing: 0.04em; margin: 3px 0 0; padding: 0; border: 0; }
+.topbar-note { color: var(--text-muted); font-size: 12.5px; }
+
+/* Page switch uses Dashboard Royale's segmented control */
+.segmented { border-radius: 11px; padding: 3px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--glass-border-hover); }
+.segmented button { border-radius: 8px; padding: 5px 12px; font-size: 12.5px; color: var(--text-secondary); transition: background .2s var(--ease), color .2s var(--ease); }
+.segmented button:hover { color: var(--text-primary); }
+.segmented button.active { background: rgba(212, 177, 105, 0.14); color: var(--text-primary); box-shadow: inset 0 0 0 1px var(--gold-line); font-weight: 500; }
+
+/* ---------- Spacing system (Dashboard Royale .content / .grid rhythm) ---------- */
+.tiles { gap: 20px; padding: 0 44px 24px; }
+.workspace { gap: 24px; padding: 0 44px 32px; }
+.center-column { gap: 24px; }
+.banner { margin: 0 44px 20px; }
+.analytics { padding: 0 44px 64px; gap: 24px; }
+.analytics-grid { gap: 24px; }
+
+/* ---------- Glass cards (Dashboard Royale .panel / .kpi) ---------- */
+.panel, .tile {
+  background: var(--glass);
+  backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--radius);
+  transition: border-color .25s var(--ease), box-shadow .25s var(--ease), background .25s var(--ease), transform .25s var(--ease);
+}
+.panel:hover { border-color: var(--glass-border-hover); box-shadow: var(--glass-shadow-hover); }
+.panel-header { min-height: 56px; padding: 16px 22px; border-bottom: 1px solid var(--glass-border); gap: 16px; }
+.panel-header h2 { font-size: 15px; font-weight: 600; letter-spacing: -0.012em; }
+.panel-note { color: var(--text-muted); font-size: 12.5px; }
+.panel-copy { color: var(--text-secondary); font-size: 13px; line-height: 1.6; }
+
+/* KPI tiles = Dashboard Royale KPI cards */
+.tile { padding: 22px 24px; position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: stretch; }
+.tile::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent); }
+.tile:hover { transform: translateY(-2px); border-color: var(--glass-border-hover); box-shadow: var(--glass-shadow-hover); background: var(--glass-hover); }
+.tile-label { color: var(--text-secondary); font-size: 12.5px; letter-spacing: 0.01em; font-weight: 400; order: 1; }
+.tile-value { align-self: flex-start; text-align: left; grid-column: auto; grid-row: auto; font-size: 26px; font-weight: 600; margin-top: 10px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; order: 2; }
+.tile-detail { color: var(--text-muted); font-size: 12px; margin-top: 6px; order: 3; }
+
+/* ---------- Buttons and form controls (Dashboard Royale .btn / select) ---------- */
+.button {
+  border-radius: 10px; padding: 7px 14px; min-height: 34px; font-size: 13px; color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04); border: 1px solid var(--glass-border-hover);
+  transition: background .2s var(--ease), border-color .2s var(--ease), color .2s var(--ease), transform .2s var(--ease), box-shadow .2s var(--ease);
+}
+.button:hover:not(:disabled) { color: var(--text-primary); border-color: var(--gold-line); background: rgba(255, 255, 255, 0.08); transform: translateY(-1px); box-shadow: 0 6px 18px -8px rgba(0, 0, 0, 0.6); }
+.button:active:not(:disabled) { transform: translateY(0); }
+.button.primary { color: var(--gold); font-weight: 600; background: linear-gradient(180deg, rgba(212, 177, 105, 0.22), rgba(212, 177, 105, 0.1)); border-color: var(--gold-line); box-shadow: none; }
+.button.primary:hover:not(:disabled) { background: linear-gradient(180deg, rgba(212, 177, 105, 0.3), rgba(212, 177, 105, 0.14)); }
+.button.small { padding: 4px 11px; min-height: 28px; border-radius: 8px; font-size: 12px; }
+.icon-button { border-radius: 8px; transition: background .2s var(--ease), color .2s var(--ease); }
+.icon-button:hover { color: var(--gold); }
+.link-button { color: var(--gold); }
+a { color: var(--gold); }
+select, input[type="search"], input[type="text"], input[type="number"],
+.graph-controls input[type="search"], .table-controls input[type="search"], .sort-select select {
+  background: rgba(255, 255, 255, 0.04); color: var(--text-primary); border: 1px solid var(--glass-border-hover);
+  border-radius: 10px; padding: 7px 11px; min-height: 34px; font: inherit; font-size: 13px;
+  transition: border-color .2s var(--ease), background .2s var(--ease);
+}
+select:hover, input:hover { border-color: rgba(255, 255, 255, 0.22); }
+select:focus, input:focus { outline: 1px solid var(--gold-line); border-color: var(--gold-line); }
+select option { background: #121826; }
+.toggle input:checked + .toggle-track { background: var(--gold); }
+.mode-switch, .detector-choice label { border-radius: var(--radius-sm); }
+.detector-choice label.selected { border-color: var(--gold-line); background: var(--gold-soft); }
+
+/* ---------- Badges, chips and banners (Dashboard Royale .badge / .callout) ---------- */
+.synthetic-badge, .source-badge, .synthetic-tag, .source-tag-pill {
+  border-radius: 999px; font-weight: 500; font-size: 11px; padding: 3px 10px; white-space: nowrap;
+}
+.source-badge, .source-tag-pill { color: var(--text-secondary); background: transparent; border: 1px solid var(--hairline-strong); }
+.synthetic-badge, .synthetic-tag { color: var(--gold); background: var(--gold-soft); border: 1px solid var(--gold-line); }
+.source-databricks, .source-simulator { color: var(--gold); }
+.source-tag-pill, .synthetic-tag { padding: 0 7px; line-height: 17px; }
+.detector-chip { border-radius: 10px; transition: background .2s var(--ease), border-color .2s var(--ease); }
+.detector-chip.active { border-color: var(--gold-line); background: var(--gold-soft); }
+.chip { border-radius: 999px; }
+
+/* Banners are callouts. Red stays for errors and degraded detection (AML status). */
+.banner {
+  border-radius: 12px; padding: 16px 20px; font-size: 13.5px; line-height: 1.6;
+  background: var(--critical-soft); border: 1px solid rgba(208, 59, 59, 0.3); border-left: 3px solid var(--critical);
+  backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+}
+.banner-info { background: rgba(212, 177, 105, 0.06); border-color: rgba(212, 177, 105, 0.2); border-left-color: var(--gold); }
+.disclaimer { border-radius: 12px; background: var(--caution-soft); border: 1px solid rgba(250, 178, 25, 0.22); border-left: 3px solid var(--caution); }
+
+/* ---------- AML status colours: red = high, yellow = medium, green = OK ---------- */
+.severity-high svg { color: var(--critical-text); }
+.severity-medium svg { color: var(--caution-text); }
+.connection-live .connection-dot { background: var(--healthy); box-shadow: 0 0 0 3px var(--healthy-soft); }
+.connection-reconnecting .connection-dot { background: var(--caution); }
+
+/* ---------- Alert feed and investigation drawer ---------- */
+.alert-card { border-radius: 12px; transition: background .2s var(--ease), border-color .2s var(--ease), transform .2s var(--ease); }
+.alert-card:hover { background: rgba(255, 255, 255, 0.04); }
+.alert-card.selected { border-color: var(--gold-line); background: var(--gold-soft); }
+.drawer { background: var(--glass-strong); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); border-left: 1px solid var(--glass-border-hover); box-shadow: -24px 0 60px -20px rgba(0, 0, 0, 0.7); }
+.drawer-header { border-bottom: 1px solid var(--glass-border); }
+.drawer-kicker { color: var(--gold); letter-spacing: 0.12em; text-transform: uppercase; font-weight: 600; font-size: 11.5px; }
+.drawer-body > section { background: rgba(255, 255, 255, 0.035); border: 1px solid var(--glass-border); border-radius: 12px; }
+.drawer-body h3::before { background: var(--gold); box-shadow: 0 0 8px rgba(212, 177, 105, 0.6); }
+
+/* ---------- Tables (Dashboard Royale table.dt) ---------- */
+.stream-table, .analytics-table, .rule-table { font-size: 13px; }
+.stream-table th, .analytics-table th, .rule-table th {
+  color: var(--text-muted); font-weight: 500; font-size: 11.5px; letter-spacing: 0.02em; padding: 12px 14px;
+  background: rgba(14, 19, 31, 0.92); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  border-bottom: 1px solid var(--glass-border-hover);
+}
+.stream-table td, .analytics-table td, .rule-table td { color: var(--text-secondary); padding: 9px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); transition: background .15s var(--ease), color .15s var(--ease); }
+.stream-table tbody tr:hover td, .analytics-table tbody tr:hover td { background: rgba(255, 255, 255, 0.04); color: var(--text-primary); }
+.analytics-table tr.expanded td { background: var(--gold-soft); }
+@keyframes row-in { 0% { background: rgba(212, 177, 105, 0.22); } }
+
+/* ---------- Charts (Dashboard Royale .chart-tip / .legend) ---------- */
+.chart-tooltip, .graph-tooltip {
+  background: var(--glass-strong); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border-hover); border-radius: 12px; padding: 10px 14px;
+  box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.7); color: var(--text-secondary); font-size: 12px;
+}
+.chart-grid { stroke: #232935; }
+.chart-axis { fill: #858479; font-size: 11px; }
+.chart-legend, .graph-legend { color: var(--text-secondary); font-size: 12px; gap: 18px; }
+.hbar-track { background: rgba(255, 255, 255, 0.06); border-radius: 4px; }
+.hbar-row:hover .hbar-fill { filter: brightness(1.18); }
+.hbar-row.selected { background: var(--gold-soft); }
+.graph-canvas { background: radial-gradient(ellipse at center, rgba(212, 177, 105, 0.05) 0%, rgba(10, 14, 24, 0.2) 70%); }
+
+/* ---------- Embedded Databricks page ---------- */
+.dbx-spinner { border-color: var(--gold-soft); border-top-color: var(--gold); }
+.dbx-missing code, .dbx-message code { background: var(--gold-soft); border-color: var(--gold-line); font-family: var(--mono); }
+
+/* ---------- Responsive (Dashboard Royale breakpoints) ---------- */
+@media (max-width: 1180px) {
+  .topbar { padding: 12px 28px; }
+  .tiles { padding: 0 28px 20px; }
+  .workspace { padding: 0 28px 28px; }
+  .banner { margin: 0 28px 16px; }
+  .analytics { padding: 0 28px 56px; }
+}
+@media (max-width: 860px) {
+  .topbar { padding: 12px 16px; margin-bottom: 16px; }
+  .tiles { padding: 0 16px 16px; gap: 14px; }
+  .workspace { padding: 0 16px 20px; gap: 16px; }
+  .banner { margin: 0 16px 14px; }
+  .analytics { padding: 0 16px 48px; gap: 16px; }
+  .panel-header { padding: 14px 16px; }
+  .tile { padding: 16px 18px; }
+  .tile-value { font-size: 22px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .panel, .tile, .button, .alert-card { transition: none !important; }
+  .tile:hover, .button:hover { transform: none !important; }
+}
+a.button { text-decoration: none; display: inline-flex; align-items: center; } a.button:hover { text-decoration: none; }
+
+/* ---------- Larger transaction network ----------
+   The console gives the network most of the centre column: at least 600px tall
+   on desktop, growing with the window. The page scrolls on short screens instead
+   of squeezing the graph. Side panels keep their own internal scrolling. */
+@media (min-width: 1241px) {
+  .app:not(.app-analytics) { height: auto; min-height: 100%; }
+  .workspace { flex: none; height: max(900px, calc(100vh - 230px)); grid-template-columns: 272px minmax(0, 1fr) 356px; }
+  .center-column { grid-template-rows: minmax(600px, 1fr) 260px; }
+}
+@media (min-width: 761px) and (max-width: 1240px) {
+  .center-column { grid-template-rows: 640px 260px; }
+}
+@media (max-width: 760px) {
+  .graph-panel { min-height: 480px; }
+}
