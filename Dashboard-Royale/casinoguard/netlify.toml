@@ -1,4 +1,4 @@
 [build]
-  base = "casinoguard"
+  base = "Dashboard-Royale/casinoguard"
   command = "npm ci && npm run build"
   publish = "dist"
