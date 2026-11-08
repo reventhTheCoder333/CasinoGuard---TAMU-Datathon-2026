@@ -683,3 +683,152 @@ tr.row-on td { background: var(--gold-soft); }
 .compare .dt { font-size: 12.5px; }
 .compare .dt th, .compare .dt td { padding-left: 10px; padding-right: 10px; white-space: nowrap; }
 @media (max-width: 1180px) { .compare .grid.g2 { grid-template-columns: 1fr; } }
+
+/* =====================================================================
+   Final polish: spacing rhythm, typography, alignment, responsive header.
+   Presentation only; same tokens, components and behaviour.
+   ===================================================================== */
+
+/* ---------- Typography ---------- */
+body { letter-spacing: -0.003em; }
+h1 { font-size: 30px; font-weight: 650; letter-spacing: -0.024em; }
+.page-head { margin-bottom: 36px; }
+.page-head .question { color: var(--text-secondary); font-size: 15px; line-height: 1.7; max-width: 780px; }
+.panel-head h2 { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.35; }
+.panel-sub { color: var(--text-muted); font-size: 12.5px; line-height: 1.55; max-width: 72ch; }
+.kpi-label { color: var(--text-muted); font-size: 12px; font-weight: 500; letter-spacing: 0.02em; }
+.kpi-value { font-size: 25px; font-weight: 600; line-height: 1.15; margin-top: 12px; }
+.kpi-sub { line-height: 1.5; margin-top: 8px; }
+.small { line-height: 1.6; }
+p.small, .panel > p { margin-top: 12px; margin-bottom: 0; }
+
+/* ---------- Sidebar ---------- */
+.brand { align-items: center; padding-bottom: 26px; }
+.brand-sub { font-size: 10.5px; line-height: 1.4; letter-spacing: 0.03em; margin-top: 5px; }
+.nav a { font-size: 13.5px; }
+.nav-group { padding-top: 22px; font-size: 10px; letter-spacing: 0.12em; }
+.sidebar .btn { justify-content: center; }
+.sidebar-foot { line-height: 1.6; }
+
+/* ---------- Header: one aligned control strip ---------- */
+.topbar { min-height: 60px; gap: 14px 20px; }
+.topbar .crumb { font-size: 12.5px; letter-spacing: 0.01em; }
+.topbar .ctrl { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.topbar select { min-height: 32px; padding-top: 5px; padding-bottom: 5px; }
+.filterbar { padding: 10px 44px 12px; gap: 12px 32px; background: rgba(10, 14, 24, 0.38); }
+.fb-group { gap: 14px; }
+.fb-field select { min-height: 32px; padding-top: 5px; padding-bottom: 5px; }
+.fb-playback { gap: 12px; }
+.timeline { width: 300px; gap: 4px; }
+.timeline-ticks { font-size: 10px; letter-spacing: 0.02em; }
+
+/* ---------- Content rhythm ---------- */
+.content { padding-top: 44px; }
+.grid { gap: 24px; }
+.mt { margin-top: 28px; }
+.kpis { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 18px; }
+.kpi { padding: 22px 24px 20px; display: flex; flex-direction: column; }
+.panel { padding: 26px 28px 28px; }
+.panel-head { margin-bottom: 18px; align-items: center; }
+.panel-head .titles { min-width: 0; }
+.panel-actions { gap: 8px; }
+.filters { padding: 12px 16px; gap: 12px 16px; margin-bottom: 28px; }
+.chips { gap: 8px; margin-bottom: 4px; }
+.callout { padding: 18px 22px; line-height: 1.65; }
+.callout + .callout { margin-top: 16px; }
+.callout-title { font-size: 13.5px; margin-bottom: 6px; }
+h2.mt, section > h2 { font-size: 18px; letter-spacing: -0.012em; }
+.legend { margin: 0 0 16px; }
+
+/* ---------- Tables: quieter, aligned, readable ---------- */
+.table-wrap { border-radius: 12px; }
+table.dt th { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); padding: 11px 14px; }
+table.dt td { padding: 11px 14px; line-height: 1.45; vertical-align: top; }
+table.dt td.num, table.dt th.num { white-space: nowrap; }
+table.dt td.wrap { min-width: 240px; color: var(--text-secondary); }
+table.dt tfoot td { padding: 10px 14px; border-top: 1px solid var(--glass-border); }
+.dt .badge { vertical-align: middle; }
+
+/* ---------- Key–value lists ---------- */
+.kv { gap: 10px 20px; font-size: 13px; }
+.kv dt { line-height: 1.5; }
+.kv dd { line-height: 1.5; }
+
+/* ---------- Action cards ---------- */
+.action-card { padding: 30px 32px; }
+.action-card .ac-head { gap: 20px; }
+.action-card .ac-head .row { row-gap: 8px; }
+.ac-sections { gap: 26px 40px; margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--glass-border); }
+.ac-sections h4 { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; margin-bottom: 10px; }
+
+/* ---------- Question rows and method cards ---------- */
+.qrow { padding: 18px 10px; align-items: center; }
+.qrow .qa { margin-top: 4px; line-height: 1.6; }
+details.acc > summary { padding: 18px 24px; gap: 12px; }
+details.acc .acc-body { padding: 0 24px 24px; }
+.method-grid { gap: 12px 24px; }
+
+/* ---------- Charts ---------- */
+.recharts-cartesian-axis-tick-value { font-size: 10.5px; }
+.chart-tip { min-width: 160px; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1180px) {
+  .filterbar { padding: 10px 28px 12px; }
+  .content { padding-top: 34px; }
+  .timeline { flex: 1; min-width: 220px; }
+}
+@media (max-width: 860px) {
+  h1 { font-size: 23px; }
+  .page-head { margin-bottom: 24px; }
+  .page-head .question { font-size: 14px; }
+  .content { padding: 20px 16px 72px; }
+  .mt { margin-top: 20px; }
+  .grid { gap: 16px; }
+  .panel { padding: 20px 18px; }
+  .panel-head { flex-wrap: wrap; align-items: flex-start; margin-bottom: 14px; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .kpi { padding: 16px 16px 14px; }
+  .kpi-value { font-size: 19px; margin-top: 8px; }
+  .action-card { padding: 22px 20px; }
+  .ac-sections { gap: 20px; }
+
+  /* Compact header: navigation, period and filters in three tidy rows */
+  .topbar { padding: 12px 16px; gap: 10px; min-height: 0; }
+  .topbar .crumb, .topbar .spacer, .topbar .row > .ctrl:first-child { display: none; }
+  .topbar .mobile-nav, .topbar .mobile-nav select { width: 100%; }
+  .topbar .row { width: 100%; gap: 8px !important; }
+  .topbar .seg { flex: 1 1 100%; overflow-x: auto; }
+  .topbar .seg button { flex: 1; padding: 5px 8px; white-space: nowrap; }
+  .topbar .row > select { flex: 1; min-width: 0; }
+  .filterbar { padding: 10px 16px 12px; gap: 10px; }
+  .filterbar .fb-group:first-child { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; width: 100%; }
+  .filterbar .fb-group:first-child > .btn { grid-column: 1 / -1; justify-self: start; }
+  .fb-field { flex-direction: column; align-items: stretch; gap: 4px; }
+  .fb-field span { font-size: 9.5px; }
+  .fb-playback { width: 100%; }
+}
+@media (max-width: 520px) {
+  .kpis { grid-template-columns: 1fr 1fr; }
+  .kpi-label { font-size: 11px; }
+  table.dt td.wrap { min-width: 200px; }
+}
+.brand-sub, h1, .panel-head h2, .callout-title { text-wrap: balance; }
+.page-head .question, .panel-sub, .callout, .qrow .qa, .ac-sections p { text-wrap: pretty; }
+/* Action cards: short sections side by side, tables full width */
+.ac-sections { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.ac-sections > div:nth-child(1) { order: 1; }
+.ac-sections > div:nth-child(3) { order: 2; }
+.ac-sections > div:nth-child(2) { order: 3; grid-column: 1 / -1; }
+.ac-sections > div:nth-child(4) { order: 4; grid-column: 1 / -1; }
+.ac-sections > div:nth-child(2) .table-wrap + .table-wrap { margin-top: 16px; }
+@media (max-width: 860px) { .ac-sections { grid-template-columns: 1fr; } .ac-sections > div { grid-column: 1 / -1 !important; } }
+@media (max-width: 420px) {
+  .kpis { grid-template-columns: 1fr; gap: 10px; }
+  .kpi { flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 12px; }
+  .kpi-label { flex: 1 1 100%; }
+  .kpi-value { margin-top: 4px; font-size: 21px; }
+  .kpi-sub { flex: 1 1 100%; margin-top: 4px; }
+}
+code { overflow-wrap: anywhere; }
+@media (max-width: 860px) { .filters .seg, .panel-actions .seg { flex-wrap: wrap; max-width: 100%; } .filters .seg button { flex: 1 1 auto; } }
