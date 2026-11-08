@@ -1,0 +1,10 @@
+# Netlify reads this file from the repository root.
+# It builds and publishes the Dashboard Royale dashboard only. CASINOGUARD
+# (FastAPI backend) and the local AI assistant (Ollama) are not deployed.
+[build]
+  base = "Dashboard-Royale/casinoguard"   # Vite project folder
+  command = "npm ci && npm run build"      # tsc -b && vite build
+  publish = "dist"                         # relative to base → Dashboard-Royale/casinoguard/dist
+
+[build.environment]
+  NODE_VERSION = "22"
